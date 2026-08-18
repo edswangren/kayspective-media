@@ -5,6 +5,13 @@ hospitality (spas, restaurants, hotels) founded by Kaylin "Kay" Mee in Austin, T
 
 **Tagline:** *Content with perspective*
 
+**Review preview:** <https://edswangren.github.io/kayspective-media/>
+Served from `main` by GitHub Pages, and rebuilt on every push. It carries a
+`noindex, nofollow` tag and a canonical pointing at `kayspectivemedia.com`, both
+scoped by hostname — so the preview can never compete with the real domain in
+search, and both switch themselves off automatically once the site is served from
+the production domain. Nothing to remember to undo at launch.
+
 No framework, no build step, no dependencies at runtime. Three files do the work:
 `index.html`, `styles.css`, `main.js`. Everything else is an asset.
 
