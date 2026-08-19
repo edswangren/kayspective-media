@@ -17,7 +17,6 @@ replacement target: swap the .webp for real photography at the same aspect
 ratio and the layout is unchanged.
 """
 import os
-from io import BytesIO
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -115,7 +114,7 @@ def panel(src, box, size, dark, light, contrast=1.0, grain=1.6, blur=0.0):
 # this studio actually delivers. Real reel stills drop into these same slots.
 PANELS = [
     # hero -- low contrast so display type stays legible over it
-    ("hero",      (0,    0,    1500, 1000), (1920, 1080), BLUSH_DEEP, CREAM_LIFT, 0.62),
+    ("hero",      (0,    40,   1500, 884),  (1920, 1080), BLUSH_DEEP, CREAM_LIFT, 0.62),
     # selected work -- vertical reel frames, each a distinct crop + tint so the
     # row reads as four pieces of work rather than one repeated swatch
     ("reel-1",    (150,  60,   700,  1040), (900, 1600), BLUSH_DEEP, CREAM_LIFT, 0.95),
@@ -123,7 +122,7 @@ PANELS = [
     ("reel-3",    (420,  480,  970,  1458), (900, 1600), GOLD,       CREAM_LIFT, 0.80),
     ("reel-4",    (900,  0,    1450, 978),  (900, 1600), ROSE_DEEP,  CREAM_LIFT, 0.98),
     # full-width divider band
-    ("band",      (0,    620,  1500, 1120), (1600, 500),  GOLD,       CREAM_LIFT, 0.55),
+    ("band",      (0,    620,  1500, 1089), (1600, 500),  GOLD,       CREAM_LIFT, 0.55),
 ]
 
 
@@ -143,8 +142,6 @@ def build_panels():
 # hair, and sweater are left exactly as shot.
 PORTRAIT_SRC = os.path.join(ASSETS, "src", "kay-portrait-original.png")
 PORTRAIT_CROP_TOP = 250          # headroom above her hair, in source pixels
-
-from PIL import Image
 
 def rgb_to_hsv(a):
     r, g, b = a[...,0], a[...,1], a[...,2]
@@ -170,21 +167,6 @@ def hsv_to_rgb(hsv):
         m = i == k
         out[...,0][m], out[...,1][m], out[...,2][m] = R[m], G[m], B[m]
     return out
-
-def grade(im, hue_pull=0.55, sat=0.88, lift=0.055):
-    """Warm the image toward the brand's peach family without recoloring skin.
-    Hue rotation is weighted by how close a pixel already sits to the backdrop's
-    rose, so the flat studio sweep moves most and skin/hair barely shift."""
-    a = np.asarray(im, dtype=np.float32) / 255.0
-    hsv = rgb_to_hsv(a)
-    h, s, v = hsv[...,0], hsv[...,1], hsv[...,2]
-    BG, TARGET = 4.1/360.0, 17.5/360.0
-    d = np.abs(((h - BG + .5) % 1.0) - .5)
-    w = np.clip(1 - d/(28/360.0), 0, 1) * np.clip(s/.28, 0, 1)
-    hsv[...,0] = (h + (TARGET - BG)*w*hue_pull) % 1.0
-    hsv[...,1] = np.clip(s * (1 - (1-sat)*w), 0, 1)
-    hsv[...,2] = np.clip(v + lift*w*(1-v)*2.2, 0, 1)
-    return Image.fromarray((np.clip(hsv_to_rgb(hsv),0,1)*255).astype(np.uint8))
 
 
 def backdrop_mask(im, val_min=0.58, sat_max=0.50, hue_tol=42/360.0, bg_hue=6/360.0, feather=2.5):

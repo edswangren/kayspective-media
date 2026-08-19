@@ -9,12 +9,18 @@ the design rationale; this file covers the parts that are easy to break.
 ## Commands
 
 ```sh
-python3 -m http.server 8747        # dev server — the entire dev loop; edit, refresh
-python3 tools/build_assets.py      # regenerate every derived asset (needs Pillow + numpy)
+python3 -m http.server 8747                          # dev server — edit, refresh
+python3 tools/build_assets.py                        # regenerate every derived asset
+python3 -m unittest discover -s tests                # full suite (~0.5s, no deps)
+python3 -m unittest tests.test_markup                # one module
+python3 -m unittest tests.test_markup.TestContentRules.test_current_employer_is_never_named
 ```
 
-There is no build step, no package manager, no linter, and **no test suite**. Verification
-is done in a real browser (see below), not by running a command.
+There is no build step, no package manager, and no linter. Tests are stdlib `unittest`
+(Pillow and numpy are needed only for the asset-pipeline module, which the build already
+requires). They cover colour maths, generated-asset geometry, and markup/link/contrast
+invariants — everything that does **not** require a renderer. Layout, focus order, and
+Lighthouse still need the browser pass described under Verification.
 
 ## Architecture
 
@@ -110,3 +116,7 @@ Before calling visual or accessibility work done, check in a real browser at 390
   *rendered* colors rather than assumed from tokens
 - Zero external requests, zero console errors, no horizontal scroll
 - Renders fully with the `js` class removed, and under `prefers-reduced-motion`
+
+Run `python3 -m unittest discover -s tests` first — it catches broken asset paths, wrong
+declared image dimensions, contrast regressions, and content-rule violations in half a
+second, without launching anything.

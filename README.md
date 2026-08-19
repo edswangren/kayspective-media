@@ -26,6 +26,22 @@ python3 -m http.server 8747
 
 That's the whole dev loop. Edit a file, refresh.
 
+## Tests
+
+```sh
+python3 -m unittest discover -s tests
+```
+
+Stdlib `unittest`, no dependencies to install, ~0.5s. Sixty checks covering the colour
+maths behind the generated imagery, the geometry of every produced asset, and markup
+invariants — local asset paths resolve, declared image dimensions match the files,
+external links carry `rel="noopener"`, the intake link is the public form rather than the
+private editor, WCAG AA contrast holds for every token pair, and the content rules below
+are not violated.
+
+They deliberately stop where a renderer is required; layout and Lighthouse are covered by
+the browser pass.
+
 ## Deploying (not done yet)
 
 Cloudflare Pages, when you're ready:
