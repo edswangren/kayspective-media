@@ -77,8 +77,9 @@ Every block of body copy is placeholder text written to the right length and rhy
 for its slot — real sentences, never lorem, so the page reads finished. Each is
 wrapped in `<!-- COPY: provisional -->` / `<!-- /COPY -->` in `index.html`.
 
-Layout is constrained by measure (`max-width: 60ch`), not by the specific words, so
-rewriting copy never means touching CSS.
+Text blocks are sized by character measure — `--measure` (62ch) on the About paragraphs,
+per-section `ch` values elsewhere — not by the specific words, so rewriting copy never
+means touching CSS.
 
 | Section | Notes |
 |---|---|
