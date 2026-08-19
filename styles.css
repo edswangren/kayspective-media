@@ -324,7 +324,9 @@ em { font-style: italic; }
 .cta-inner { max-width: 690px; }
 .cta .star-lg { margin: 0 auto 1.75rem; }
 .cta h2 { margin-bottom: 1.25rem; }
-.cta p { color: var(--ink-soft); margin-inline: auto; max-width: 44ch; }
+/* direct children only: `.cta p` also matched the form's <p class="field">
+   wrappers, and an auto inline margin stops a grid item stretching. */
+.cta-inner > p { color: var(--ink-soft); margin-inline: auto; max-width: 44ch; }
 .cta .btn { margin-top: 2.5rem; }
 .cta-alt { margin-top: 1.75rem !important; font-size: .92rem; }
 .cta-alt a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--hairline); }
@@ -337,7 +339,7 @@ em { font-style: italic; }
 .intake { margin-top: clamp(2.25rem, 4vw, 3rem); text-align: left; }
 
 .field-row { display: grid; gap: 0 1.25rem; grid-template-columns: 1fr 1fr; }
-.field { margin: 0 0 1.15rem; }
+.field { margin: 0 0 1.15rem; max-width: none; margin-inline: 0; }
 
 .field label {
   display: block; margin-bottom: .5rem;
@@ -390,7 +392,9 @@ em { font-style: italic; }
   margin-top: 1.75rem;
 }
 .form-foot .btn { margin-top: 0 !important; }
-.form-note { font-size: .84rem; color: var(--ink-soft); margin: 0 !important; max-width: 24ch; text-align: left; }
+/* no max-width: the flex row already bounds it, and a cap forced a two-line
+   wrap in space that fits one. */
+.form-note { font-size: .84rem; color: var(--ink-soft); margin: 0 !important; text-align: left; flex: 1 1 14rem; }
 
 .intake[data-sending] { opacity: .6; pointer-events: none; }
 
