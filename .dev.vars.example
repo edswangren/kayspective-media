@@ -1,0 +1,10 @@
+# Copy to .dev.vars for local `wrangler pages dev` runs. .dev.vars is gitignored.
+# In production these are Pages secrets, set in the Cloudflare dashboard.
+
+RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
+INTAKE_TO="kayspectivemedia@gmail.com"
+INTAKE_FROM="Kayspective Media <hello@kayspectivemedia.com>"
+
+# Optional. When unset, bot checking is skipped — which is what makes local
+# development work without a Turnstile widget on the page.
+# TURNSTILE_SECRET="0x4xxxxxxxxxxxxxxxxxxxx"

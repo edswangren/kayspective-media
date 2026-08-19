@@ -11,7 +11,8 @@ the design rationale; this file covers the parts that are easy to break.
 ```sh
 python3 -m http.server 8747                          # dev server — edit, refresh
 python3 tools/build_assets.py                        # regenerate every derived asset
-python3 -m unittest discover -s tests                # full suite (~0.5s, no deps)
+python3 -m unittest discover -s tests                # python suite (~0.6s, no deps)
+node --test tests/*.test.mjs                          # intake validation (node's runner)
 python3 -m unittest tests.test_markup                # one module
 python3 -m unittest tests.test_markup.TestContentRules.test_current_employer_is_never_named
 ```
@@ -66,6 +67,35 @@ Two conventions worth keeping:
 Several tests encode a bug that already shipped once (declared image dimensions
 disagreeing with the file, the private `/edit` form URL, HSV blending fringing hair
 green). Treat a failure as a real regression before assuming the test is stale.
+
+### The intake form
+
+The only server-side code. `functions/api/intake.js` is a Cloudflare Pages Function that
+validates a submission, emails Kay via Resend, and sends the enquirer a confirmation.
+**Nothing is persisted** — it is a delivery pipe, not a CRM.
+
+- `functions/api/_lib/validate.js` is deliberately free of Workers APIs so it can be
+  unit-tested under plain node. Keep it that way.
+- `_routes.json` restricts Function invocation to `/api/intake` alone, so every other
+  path is served statically and the helper module is unreachable.
+- Secrets (`RESEND_API_KEY`, `INTAKE_TO`, `INTAKE_FROM`, optional `TURNSTILE_SECRET`)
+  are Pages secrets in production and `.dev.vars` locally — see `.dev.vars.example`.
+  With none set, the Function returns a 503 telling the visitor to email instead, which
+  is why local development works without credentials.
+- **The form must keep working without JavaScript.** It is a real `<form>` that POSTs
+  and redirects to `/thank-you/`; `main.js` only intercepts to avoid the reload. A
+  delivery failure redirects to `/thank-you/?error=1`, which must never thank someone
+  whose enquiry did not arrive.
+- Bots that trip the honeypot get the same response shape as success and nothing is
+  sent, so they learn nothing.
+- The `<option>` list and `SUPPORT_LEVELS` in the validator must stay identical — a
+  drift silently rejects real submissions, and a test enforces it.
+
+Local dev with the Function needs wrangler rather than `http.server`:
+
+```sh
+npx wrangler pages dev . --port 8788 --compatibility-date=2025-01-01
+```
 
 ### Placeholder vs. real imagery
 
@@ -132,8 +162,10 @@ These are correctness constraints on a live business site, not style preferences
 Before calling visual or accessibility work done, check in a real browser at 390 / 768 /
 1440 (Chrome DevTools MCP is available):
 
-- Lighthouse — currently 100 for accessibility, best practices, and SEO on desktop and
-  mobile; treat any regression as a bug
+- Lighthouse — 100 for accessibility and best practices. **SEO reads 69 on localhost and
+  on previews, and that is correct**: the hostname-scoped guard applies `noindex`
+  everywhere except `kayspectivemedia.com`, so the `is-crawlable` audit fails by design.
+  Only a drop in accessibility or best practices is a regression.
 - Contrast: every text/background pair at 4.5:1 (3:1 for large type), audited against the
   *rendered* colors rather than assumed from tokens
 - Zero external requests, zero console errors, no horizontal scroll

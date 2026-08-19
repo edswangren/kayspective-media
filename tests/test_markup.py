@@ -145,15 +145,26 @@ class TestAccessibility(unittest.TestCase):
 
 
 class TestOutboundLinks(unittest.TestCase):
-    def test_intake_form_uses_the_public_published_url(self):
-        """The /edit URL is the private editor and 403s for everyone but Kay."""
+    def test_long_google_intake_is_not_exposed_to_cold_traffic(self):
+        """The 34-question questionnaire is an onboarding step Kay sends after first
+        contact, not a landing-page CTA. Cold visitors get the short on-site form."""
         forms = [a["href"] for a in of("a") if "docs.google.com/forms" in a.get("href", "")]
-        self.assertTrue(forms, "intake form link is missing entirely")
-        for href in forms:
-            with self.subTest(href=href):
-                self.assertNotIn("/edit", href)
-                self.assertIn("/viewform", href)
-                self.assertRegex(href, r"/forms/d/e/[\w-]+/viewform")
+        self.assertEqual(forms, [], f"Google Form linked publicly: {forms}")
+
+    def test_any_google_form_link_would_be_the_public_url(self):
+        """Guard for if one is ever re-added: /edit is the private editor and 403s."""
+        for a in of("a"):
+            href = a.get("href", "")
+            if "docs.google.com/forms" in href:
+                with self.subTest(href=href):
+                    self.assertNotIn("/edit", href)
+                    self.assertIn("/viewform", href)
+
+    def test_primary_calls_to_action_point_at_the_on_site_form(self):
+        labels = {"Start a project"}
+        ctas = [a for a in of("a") if (a.get("class") or "").startswith("btn")]
+        targeted = [a for a in ctas if a.get("href") == "#contact"]
+        self.assertGreaterEqual(len(targeted), 2, "hero and header CTAs should reach #contact")
 
     def test_contact_details_are_present(self):
         hrefs = [a.get("href", "") for a in of("a")]
@@ -201,6 +212,19 @@ class TestMetadata(unittest.TestCase):
         # it must be conditional, never a bare tag that would ship to production
         self.assertNotRegex(HTML, r'<meta[^>]+name="robots"[^>]+noindex')
 
+    def test_noindex_guard_matches_only_the_production_hostname(self):
+        """Locally and on previews this fires, which is why Lighthouse SEO reads 69
+        there. Production must be the one place it does not."""
+        # extract the regex the page actually ships, not a copy of it
+        m = re.search(r"/(\^[^/]+\$)/\.test\(location\.hostname\)", HTML)
+        self.assertIsNotNone(m, "hostname guard not found in index.html")
+        rx = re.compile(m.group(1))
+        for host in ("kayspectivemedia.com", "www.kayspectivemedia.com"):
+            self.assertTrue(rx.match(host), f"{host} should be indexable")
+        for host in ("localhost", "edswangren.github.io",
+                     "kayspective-media.pages.dev", "evil-kayspectivemedia.com"):
+            self.assertFalse(rx.match(host), f"{host} must not be treated as production")
+
     def test_tagline_is_the_h1(self):
         h1 = re.search(r"<h1[^>]*>(.*?)</h1>", HTML, re.S).group(1)
         self.assertIn("Content with", h1)
@@ -226,6 +250,77 @@ class TestDeployment(unittest.TestCase):
         robots = pathlib.Path(ROOT, "robots.txt").read_text()
         self.assertIn("https://kayspectivemedia.com/", sitemap)
         self.assertIn("https://kayspectivemedia.com/sitemap.xml", robots)
+
+
+class TestIntakeForm(unittest.TestCase):
+    """The form is the site's only conversion path, so it must work without JS."""
+
+    def form_controls(self):
+        return [(t, a) for t, a in DOC.tags if t in ("input", "select", "textarea")]
+
+    def test_form_posts_natively_to_the_function(self):
+        form = of("form")[0]
+        self.assertEqual(form.get("method", "").lower(), "post")
+        self.assertEqual(form.get("action"), "/api/intake")
+
+    def test_every_control_has_a_label(self):
+        labels = {a["for"] for a in of("label") if a.get("for")}
+        for tag, a in self.form_controls():
+            with self.subTest(name=a.get("name")):
+                self.assertIn("id", a, f"{tag} {a.get('name')} has no id")
+                self.assertIn(a["id"], labels, f"no <label for> targets {a['id']}")
+
+    def test_required_fields_are_marked_required(self):
+        required = {a["name"] for _, a in self.form_controls() if "required" in a}
+        self.assertEqual(required, {"business", "name", "email", "support"})
+
+    def test_controls_have_length_caps_matching_the_server(self):
+        """Client caps are UX; the server enforces the same limits independently."""
+        lib = pathlib.Path(ROOT, "functions/api/_lib/validate.js").read_text()
+        limits = dict(re.findall(r"(\w+):\s*(\d+),", lib.split("LIMITS = {")[1].split("}")[0]))
+        for _, a in self.form_controls():
+            name = a.get("name")
+            if name in limits and a.get("type") != "hidden" and name != "support":
+                with self.subTest(name=name):
+                    self.assertEqual(a.get("maxlength"), limits[name])
+
+    def test_support_options_match_the_server_allowlist(self):
+        """A mismatch silently rejects a real submission, so they must not drift."""
+        lib = pathlib.Path(ROOT, "functions/api/_lib/validate.js").read_text()
+        block = lib.split("SUPPORT_LEVELS = [")[1].split("];")[0]
+        server = [m.group(1) for m in re.finditer(r'"([^"]+)"', block)]
+        html_opts = re.findall(r"<option>(.*?)</option>", HTML, re.S)
+        import html as htmllib
+        rendered = [htmllib.unescape(o).replace("\u2019", "'").strip() for o in html_opts]
+        self.assertEqual(len(server), len(rendered), "option count drifted")
+        for a, b in zip(server, rendered):
+            with self.subTest(option=b):
+                self.assertEqual(a, b)
+
+    def test_honeypot_is_present_and_hidden_from_people(self):
+        hp = [a for _, a in self.form_controls() if a.get("name") == "website"]
+        self.assertEqual(len(hp), 1, "bot trap missing")
+        self.assertEqual(hp[0].get("tabindex"), "-1")
+        self.assertEqual(hp[0].get("autocomplete"), "off")
+        css = pathlib.Path(ROOT, "styles.css").read_text()
+        self.assertIn(".hp {", css)
+        self.assertNotIn("website", [a.get("name") for _, a in self.form_controls()][:3])
+
+    def test_status_region_is_announced_to_screen_readers(self):
+        status = [a for a in of("p") if a.get("id") == "intake-status"][0]
+        self.assertEqual(status.get("role"), "status")
+        self.assertEqual(status.get("aria-live"), "polite")
+
+    def test_thank_you_fallback_page_exists_for_no_js_visitors(self):
+        page = pathlib.Path(ROOT, "thank-you/index.html")
+        self.assertTrue(page.is_file())
+        body = page.read_text()
+        self.assertIn("noindex", body, "the confirmation page should not be indexed")
+        self.assertIn("error", body, "it must handle the delivery-failure redirect")
+
+    def test_functions_are_restricted_to_the_intake_route(self):
+        routes = json.loads(pathlib.Path(ROOT, "_routes.json").read_text())
+        self.assertEqual(routes["include"], ["/api/intake"])
 
 
 class TestScripts(unittest.TestCase):

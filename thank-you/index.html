@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thank you — Kayspective Media</title>
+<meta name="description" content="Your enquiry has reached Kayspective Media.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/cormorant-garamond-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/jost-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  /* This page exists for visitors without JavaScript, who get redirected here
+     instead of seeing the inline success state. */
+  .thanks { min-height: 100svh; display: grid; place-items: center; text-align: center; padding: 2rem var(--gutter); }
+  .thanks-inner { max-width: 32rem; }
+  .thanks img { margin: 0 auto 2rem; border-radius: 50%; }
+  .thanks h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); margin-bottom: 1.25rem; }
+  .thanks p { color: var(--ink-soft); margin-inline: auto; max-width: 38ch; }
+  .thanks .btn { margin-top: 2.5rem; }
+</style>
+</head>
+<body>
+<main class="thanks">
+  <div class="thanks-inner">
+    <img src="../assets/logo-mark-96.webp" alt="Kayspective Media" width="72" height="72">
+    <p class="eyebrow">Received</p>
+    <h1 id="thanks-title">Thank you.</h1>
+    <p id="thanks-body">I&rsquo;ve got your details and I&rsquo;ll come back to you personally,
+      usually within two business days.</p>
+    <a class="btn btn-outline" href="../">Back to the site</a>
+  </div>
+</main>
+<script>
+  // The Function redirects here with ?error=1 when delivery failed, so the page
+  // must not thank someone whose enquiry never arrived.
+  if (new URLSearchParams(location.search).has('error')) {
+    document.getElementById('thanks-title').textContent = 'That didn’t go through.';
+    document.getElementById('thanks-body').innerHTML =
+      'Something went wrong sending your details. Please email ' +
+      '<a href="mailto:kayspectivemedia@gmail.com">kayspectivemedia@gmail.com</a> and I’ll pick it up right away.';
+    document.querySelector('.eyebrow').textContent = 'Not sent';
+  }
+</script>
+</body>
+</html>

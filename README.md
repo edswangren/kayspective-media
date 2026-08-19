@@ -29,12 +29,15 @@ That's the whole dev loop. Edit a file, refresh.
 ## Tests
 
 ```sh
-python3 -m unittest discover -s tests
+python3 -m unittest discover -s tests   # markup, tokens, asset pipeline
+node --test tests/*.test.mjs            # intake form validation
 ```
 
-Stdlib `unittest`, no dependencies to install, ~0.5s. Sixty checks covering the colour
-maths behind the generated imagery, the geometry of every produced asset, and markup
-invariants — local asset paths resolve, declared image dimensions match the files,
+(`node --test tests/` does not work — node reads a bare directory as a module path.)
+
+No dependencies to install, under a second. 91 checks covering the colour maths behind
+the generated imagery, the geometry of every produced asset, intake-form validation, and
+markup invariants — local asset paths resolve, declared image dimensions match the files,
 external links carry `rel="noopener"`, the intake link is the public form rather than the
 private editor, WCAG AA contrast holds for every token pair, and the content rules below
 are not violated.
