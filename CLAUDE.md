@@ -45,6 +45,28 @@ into the brand blush via a border-connected flood-fill mask, so her skin, hair, 
 jewellery are untouched. Compositing happens in RGB, never HSV — interpolating hue across
 the feathered edge fringes her hair green.
 
+### Tests
+
+`tests/` is stdlib `unittest`, split by what it can prove without a renderer:
+
+| Module | Owns |
+|---|---|
+| `test_design_tokens.py` | palette values, WCAG contrast matrix, CSS hygiene |
+| `test_markup.py` | asset paths, image dimensions, links, metadata, content rules |
+| `test_asset_pipeline.py` | colour maths, mask behaviour, generated-asset geometry |
+
+Two conventions worth keeping:
+
+- **Content rules are executable.** "Never name the employer" and "no invented clients"
+  are tests, not comments, because they are liability constraints rather than style.
+- **When you add an asset, section, or outbound link, extend the invariant rather than
+  the fixture list.** The tests walk the DOM and `PANELS`, so new items are covered
+  automatically — that only holds if you keep assertions general.
+
+Several tests encode a bug that already shipped once (declared image dimensions
+disagreeing with the file, the private `/edit` form URL, HSV blending fringing hair
+green). Treat a failure as a real regression before assuming the test is stale.
+
 ### Placeholder vs. real imagery
 
 The hero, the four 9:16 reel frames, and the divider band are **brand-tinted marble, not
