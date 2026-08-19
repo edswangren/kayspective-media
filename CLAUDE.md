@@ -26,9 +26,16 @@ Lighthouse still need the browser pass described under Verification.
 ## Architecture
 
 Three hand-written files do all the work — `index.html`, `styles.css`, `main.js` — with no
-framework and no runtime dependencies. The page makes **zero external network requests**;
-fonts are self-hosted variable WOFF2 (one file per family covers weights 300–500). Keep it
-that way: adding a CDN link or an npm dependency changes the nature of the project.
+framework and no runtime dependencies. Fonts are self-hosted variable WOFF2 (one file per
+family covers weights 300–500).
+
+**The page loads with zero external network requests.** The single exception is the city
+type-ahead, which calls Photon only once someone types into that field — never on load.
+A test pins `photon.komoot.io` as the only permitted third party. Adding a CDN link or an
+npm dependency changes the nature of the project.
+
+`main.js` is an ES module (`<script type="module">`), so it can import `lib/photon.js`.
+Modules are deferred by default — do not re-add a `defer` attribute.
 
 ### Assets are generated, not authored
 
@@ -96,6 +103,26 @@ Local dev with the Function needs wrangler rather than `http.server`:
 ```sh
 npx wrangler pages dev . --port 8788 --compatibility-date=2025-01-01
 ```
+
+### City type-ahead
+
+`lib/photon.js` holds the pure logic (URL building, label formatting, dedup) so it is
+testable under node; `main.js` owns the DOM and ARIA. Results are biased toward Austin,
+so "aus" surfaces Austin, Texas ahead of Aus, Namibia — a bias, not a filter.
+
+- Photon is a free community service with no key. Keep requests debounced (280 ms),
+  cached per query, aborted on each keystroke, and gated behind a two-character minimum.
+- **Nominatim is not an alternative** — its usage policy forbids autocomplete outright.
+- The field is optional and must never block submission: every failure path, including a
+  dead API, silently closes the list and leaves an ordinary text input.
+- Native `autocomplete="address-level2"` stays in the markup and JS switches it to `off`
+  only after upgrading the field, so a no-JS visitor still gets browser address autofill
+  and nobody ever sees two dropdowns at once.
+
+**`<p>` accepts phrasing content only.** The listbox is a `<ul>`, so the field wrappers
+are `<div>`, not `<p>` — authoring it inside a paragraph makes every browser close the
+paragraph early, which moves the listbox out of its positioned wrapper and drops it at
+the foot of the page. A test enforces this across all three pages.
 
 ### Placeholder vs. real imagery
 

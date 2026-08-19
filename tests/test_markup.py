@@ -252,6 +252,46 @@ class TestDeployment(unittest.TestCase):
         self.assertIn("https://kayspectivemedia.com/sitemap.xml", robots)
 
 
+class TestHtmlNesting(unittest.TestCase):
+    """<p> accepts phrasing content only. Authoring a block element inside one
+    makes every browser silently close the paragraph, which moved the combobox
+    listbox out of its positioned wrapper and dropped it at the foot of the page."""
+
+    BLOCK = {"ul", "ol", "div", "table", "form", "section", "p", "fieldset"}
+    VOID = {"img", "input", "br", "meta", "link", "source", "use", "path", "hr", "area"}
+
+    def test_no_block_elements_inside_a_paragraph(self):
+        class Stack(HTMLParser):
+            def __init__(inner):
+                super().__init__()
+                inner.stack, inner.bad = [], []
+
+            def handle_starttag(inner, tag, attrs):
+                if tag in TestHtmlNesting.BLOCK and "p" in inner.stack:
+                    inner.bad.append(f"<{tag}> inside <p> at line {inner.getpos()[0]}")
+                if tag not in TestHtmlNesting.VOID:
+                    inner.stack.append(tag)
+
+            def handle_endtag(inner, tag):
+                if tag in inner.stack:
+                    while inner.stack and inner.stack.pop() != tag:
+                        pass
+
+        for name in ("index.html", "thank-you/index.html", "404.html"):
+            with self.subTest(page=name):
+                parser = Stack()
+                parser.feed(pathlib.Path(ROOT, name).read_text())
+                self.assertEqual(parser.bad, [])
+
+    def test_combobox_listbox_is_inside_its_positioned_wrapper(self):
+        """Without this the absolutely-positioned list has no containing block."""
+        wrapper = re.search(r'<div[^>]*class="[^"]*field-combo[^"]*"[^>]*>(.*?)</div>', HTML, re.S)
+        self.assertIsNotNone(wrapper, "field-combo wrapper not found")
+        self.assertIn('id="city-list"', wrapper.group(1))
+        css = pathlib.Path(ROOT, "styles.css").read_text()
+        self.assertRegex(css, r"\.field-combo\s*\{[^}]*position:\s*relative")
+
+
 class TestIntakeForm(unittest.TestCase):
     """The form is the site's only conversion path, so it must work without JS."""
 
@@ -336,6 +376,16 @@ class TestScripts(unittest.TestCase):
         js = pathlib.Path(ROOT, "main.js").read_text()
         self.assertIn("sweep", js)
         self.assertIn("addEventListener('scroll'", js)
+
+    def test_photon_is_the_only_third_party_the_client_ever_calls(self):
+        """The page loads with zero external requests; the city type-ahead is the
+        single exception, and only once someone types. Keep it that way."""
+        ALLOWED = {"photon.komoot.io"}
+        client = "\n".join(
+            pathlib.Path(ROOT, f).read_text() for f in ("main.js", "lib/photon.js", "styles.css")
+        )
+        hosts = set(re.findall(r"https?://([\w.-]+)", client))
+        self.assertEqual(hosts - ALLOWED - {"www.w3.org"}, set())
 
     def test_no_console_statements_ship(self):
         js = pathlib.Path(ROOT, "main.js").read_text()

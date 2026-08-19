@@ -414,6 +414,37 @@ em { font-style: italic; }
   .field-row { grid-template-columns: 1fr; }
 }
 
+
+/* ── city type-ahead ─────────────────────────────────────────────────────── */
+.field-combo { position: relative; }
+
+.combo-list {
+  position: absolute; z-index: 20; left: 0; right: 0; top: 100%;
+  margin: -1px 0 0; padding: 0; list-style: none;
+  background: var(--cream-lift);
+  border: 1px solid var(--gold-deep);
+  max-height: 15rem; overflow-y: auto;
+  box-shadow: 0 12px 28px rgba(43, 35, 28, .12);
+}
+.combo-list[hidden] { display: none; }
+
+.combo-option {
+  padding: .7rem 1rem;
+  font-size: .95rem; color: var(--ink);
+  cursor: pointer;
+  border-bottom: 1px solid var(--hairline);
+}
+.combo-option:last-child { border-bottom: 0; }
+/* aria-selected drives the visual state so pointer and keyboard agree */
+.combo-option[aria-selected="true"] { background: var(--blush); }
+
+.combo-empty { padding: .7rem 1rem; font-size: .9rem; color: var(--ink-soft); }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
 /* ── footer ──────────────────────────────────────────────────────────────── */
 .site-footer { background: var(--cream); padding-block: clamp(3rem, 5vw, 4.25rem); }
 .footer-inner { display: grid; gap: 1.6rem; justify-items: center; text-align: center; }

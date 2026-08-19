@@ -259,31 +259,35 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
 
     <form class="intake reveal" id="intake" method="post" action="/api/intake" novalidate>
       <div class="field-row">
-        <p class="field">
+        <div class="field">
           <label for="f-business">Business name</label>
           <input id="f-business" name="business" type="text" autocomplete="organization" required maxlength="120">
           <span class="field-error" id="e-business" hidden></span>
-        </p>
-        <p class="field">
+        </div>
+        <div class="field">
           <label for="f-name">Your name</label>
           <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="120">
           <span class="field-error" id="e-name" hidden></span>
-        </p>
+        </div>
       </div>
 
       <div class="field-row">
-        <p class="field">
+        <div class="field">
           <label for="f-email">Email</label>
           <input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="200">
           <span class="field-error" id="e-email" hidden></span>
-        </p>
-        <p class="field">
+        </div>
+        <div class="field field-combo">
           <label for="f-city">City <span class="opt">(optional)</span></label>
-          <input id="f-city" name="city" type="text" autocomplete="address-level2" maxlength="120">
-        </p>
+          <!-- A plain text input until main.js upgrades it to a combobox. If the
+               script never runs, browser address autofill still applies. -->
+          <input id="f-city" name="city" type="text" autocomplete="address-level2"
+                 maxlength="120" autocapitalize="words" spellcheck="false">
+          <ul class="combo-list" id="city-list" role="listbox" aria-label="City suggestions" hidden></ul>
+        </div>
       </div>
 
-      <p class="field">
+      <div class="field">
         <label for="f-support">What level of support are you looking for?</label>
         <select id="f-support" name="support" required>
           <option value="" selected disabled>Choose one&hellip;</option>
@@ -294,12 +298,12 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
           <option>Not sure yet — recommend a level after an audit</option>
         </select>
         <span class="field-error" id="e-support" hidden></span>
-      </p>
+      </div>
 
-      <p class="field">
+      <div class="field">
         <label for="f-message">Anything you&rsquo;d like me to know? <span class="opt">(optional)</span></label>
         <textarea id="f-message" name="message" rows="3" maxlength="2000"></textarea>
-      </p>
+      </div>
 
       <!-- Bot trap: real people never see or fill this. -->
       <p class="hp" aria-hidden="true">
@@ -335,6 +339,6 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
   </div>
 </footer>
 
-<script src="main.js" defer></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>

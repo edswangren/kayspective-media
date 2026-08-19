@@ -69,8 +69,9 @@ eyebrows, and rules. Nothing is allowed to out-saturate the logo. Blush appears
 exactly once, as the closing CTA wash.
 
 **Type:** Cormorant Garamond (display) + Jost (UI). Both self-hosted variable fonts —
-one 37 KB and one 26 KB file covering weights 300–500. The page makes **zero external
-network requests**.
+one 37 KB and one 26 KB file covering weights 300–500. The page **loads with zero external
+network requests**; the only third party is Photon, called by the city type-ahead once
+someone types into that field.
 
 **Palette** — Kay's four brand colors, plus derived neutrals her palette doesn't specify:
 
