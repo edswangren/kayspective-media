@@ -8,6 +8,9 @@ hospitality founded by Kaylin "Kay" Mee in Austin, TX. **Live at
 `README.md` covers deployment and the design rationale; this file covers the parts that
 are easy to break.
 
+Visitors arrive from Instagram and Facebook links, overwhelmingly on mobile browsers.
+Prospects are hospitality founders and operators. Design for that audience.
+
 ## Commands
 
 ```sh
@@ -44,11 +47,10 @@ Three hand-written files do all the work — `index.html`, `styles.css`, `main.j
 framework and no runtime dependencies. Fonts are self-hosted variable WOFF2 (one file per
 family covers weights 300–500).
 
-**Two third parties, both deliberate.** Cloudflare Turnstile loads on sight for the
-form's bot check; Photon is called by the city type-ahead only once someone types into
-that field. A test holds the subresource allowlist to those, not because more is
-forbidden but so a new dependency is a decision rather than drift. Everything else —
-fonts, imagery — is self-hosted.
+**Two third parties.** Cloudflare Turnstile loads on sight for the form's bot check;
+Photon is called by the city type-ahead once someone types into that field. Fonts and
+imagery are self-hosted. A test pins the subresource allowlist to those two, so adding
+a third is a decision rather than drift.
 
 `main.js` is an ES module (`<script type="module">`), so it can import `lib/photon.js`.
 Modules are deferred by default — do not re-add a `defer` attribute.
@@ -109,20 +111,16 @@ validates a submission, emails Kay via Resend, and sends the enquirer a confirma
   path is served statically and the helper module is unreachable.
 - Secrets (`RESEND_API_KEY`, `INTAKE_TO`, `INTAKE_FROM`, optional `TURNSTILE_SECRET`)
   are Pages secrets in production and `.dev.vars` locally — see `.dev.vars.example`.
-  With none set, the Function returns a 503 telling the visitor to email instead, which
-  is why local development works without credentials. **Secrets only reach a new
+  With none set, the Function returns a 503 telling the visitor to email instead, so
+  local development runs without credentials. **Secrets only reach a new
   deployment** — redeploy after changing one, or the running version keeps the old value.
 - **Turnstile is a managed widget in `interaction-only` mode.** It renders at zero
   height for an ordinary visitor and only becomes a checkbox when Cloudflare's risk
   signals ask for one — anything that makes it show for everyone is a regression, and a
   test pins the mode. Cloudflare's development sitekeys always pass, so a test also
   fails if one is left in the markup.
-- **Turnstile means the form no longer works without JavaScript**, and that was a
-  deliberate trade. No JS means no token; the server cannot tell that visitor from a bot
-  that simply omitted one, so both are refused. They are sent to `/thank-you/?error=verify`,
-  which names JavaScript as the likely cause and gives them the email address, and a
-  `<noscript>` block in the form says the same thing before they try. Do not "fix" this
-  by letting tokenless posts through — that is the whole bypass.
+- **The form requires JavaScript.** A post without a Turnstile token is refused and
+  lands on `/thank-you/?error=verify`.
 - Resend's API key is send-only, so it cannot list domains or read logs — a failed
   `api.resend.com/domains` call means the key is scoped correctly, not broken.
 - **The form is still a real `<form>` that POSTs and redirects** to `/thank-you/`;
@@ -204,10 +202,9 @@ position outruns the IntersectionObserver, and reading `opacity` mid-transition 
 up to 450ms of stagger) reports elements as hidden that are actually fading in. Scroll at a
 human pace and wait ~2.5s before asserting.
 
-**The `noindex` and canonical are hostname-scoped on purpose.** The review preview carries
-`noindex, nofollow`; both it and the canonical switch themselves off automatically once the
-site is served from `kayspectivemedia.com`. This is not a bug and needs no cleanup at
-launch.
+**The `noindex` and canonical are hostname-scoped.** Preview deployments carry
+`noindex, nofollow`; both the tag and the canonical resolve to the live values whenever
+the hostname is `kayspectivemedia.com`.
 
 ## Operations
 
@@ -228,17 +225,12 @@ launch.
 - Wrangler's OAuth token carries `challenge-widgets.write`, so Turnstile widgets can be
   created straight from the API (`POST /accounts/{id}/challenges/widgets`) — no dashboard.
 - A deploy uploads `dist/`, not the repo root, so `tools/`, `tests/`, and `assets/src/`
-  are no longer publicly reachable. `tools/build_site.py` is an allowlist — a new asset
+  are not publicly reachable. `tools/build_site.py` is an allowlist — a new asset
   has to be named there or the build fails on the reference check.
-- **The Pages project is Direct Upload and cannot be converted to a Git-connected one.**
-  That is why CI deploys with wrangler instead of Cloudflare's GitHub integration; going
-  the other way would mean a new project, moving the custom domain, and re-adding every
-  secret. CI authenticates with `CLOUDFLARE_API_TOKEN` (`Account -> Cloudflare Pages ->
-  Edit`) plus `CLOUDFLARE_ACCOUNT_ID`, both GitHub repository secrets. Runtime secrets
-  stay Pages-side and are deliberately not duplicated in GitHub.
-- **Cloudflare Pages is the only host.** GitHub Pages was used for early review and has
-  been deleted — do not re-enable it. Pages Functions do not run there, so the contact
-  form cannot work on GitHub Pages, and a second copy of the site only splits traffic.
+- **The Pages project is Direct Upload**, so CI deploys with wrangler rather than
+  Cloudflare's GitHub integration. It authenticates with `CLOUDFLARE_API_TOKEN`
+  (`Account -> Cloudflare Pages -> Edit`) and `CLOUDFLARE_ACCOUNT_ID`, both GitHub
+  repository secrets. Runtime secrets stay Pages-side.
 
 ## Content rules
 
@@ -261,10 +253,9 @@ Before calling visual or accessibility work done, check in a real browser at 390
 1440 (Chrome DevTools MCP is available):
 
 - Lighthouse — 100 across accessibility, best practices, and SEO **on the live domain**.
-  **SEO reads 69 on localhost and on `*.pages.dev`, and that is correct**: the
-  hostname-scoped guard applies `noindex` everywhere except `kayspectivemedia.com`, so
-  the `is-crawlable` audit fails by design off-production. Only a drop in accessibility
-  or best practices is a regression locally.
+  **SEO reads 69 off-production**: the hostname guard applies `noindex` anywhere but
+  `kayspectivemedia.com`, failing `is-crawlable`. Locally, only accessibility and best
+  practices can regress.
 - Contrast: every text/background pair at 4.5:1 (3:1 for large type), audited against the
   *rendered* colors rather than assumed from tokens
 - Zero external requests, zero console errors, no horizontal scroll
