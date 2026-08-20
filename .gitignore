@@ -3,3 +3,7 @@ __pycache__/
 .dev.vars
 .wrangler/
 node_modules/
+
+# Local working notes and credentials (Resend API key lives here).
+# Tracked here, not just .git/info/exclude, so a fresh clone ignores it too.
+.planning/

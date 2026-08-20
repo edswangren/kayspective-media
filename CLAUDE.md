@@ -182,6 +182,22 @@ files beginning with an underscore — it would eat `_headers`.
 site is served from `kayspectivemedia.com`. This is not a bug and needs no cleanup at
 launch.
 
+## Operations
+
+- Cloudflare account is **kayspectivemedia@gmail.com** (`601c9bd446100addb50b674d9740600c`),
+  Pages project `kayspective-media`. `wrangler whoami` confirms which account a session
+  is authenticated as — worth checking, since the OAuth flow silently uses whichever
+  Cloudflare account the default browser is already signed into.
+- **Wrangler's OAuth has no DNS scope at all** (`zone:read` is the only zone permission
+  it offers). DNS changes need either the dashboard or an API token with
+  `Zone → DNS → Edit`. Do not waste time trying to re-scope a wrangler login.
+- DNS: apex and `www` are proxied CNAMEs to `kayspective-media.pages.dev`. Resend sends
+  from the domain via DKIM/SPF/MX on `send`, all DNS-only (grey cloud).
+- The Resend key lives in `.planning/resend-api-key`, which is gitignored and **not in
+  the repo** — a fresh clone will not have it. Retrieve it from Resend or the user.
+- A deploy uploads the whole repo root, so `tools/`, `tests/`, and `assets/src/` are
+  publicly reachable. `functions/` and `.git/` are excluded automatically.
+
 ## Content rules
 
 These are correctness constraints on a live business site, not style preferences.
