@@ -302,11 +302,8 @@ class TestMetadata(unittest.TestCase):
 
 
 class TestDeployment(unittest.TestCase):
-    def test_nojekyll_present(self):
-        """Without it GitHub Pages runs Jekyll, which strips files starting with '_'."""
-        self.assertTrue(os.path.isfile(os.path.join(ROOT, ".nojekyll")))
-
-    def test_underscore_files_that_jekyll_would_eat_are_accounted_for(self):
+    def test_headers_file_is_present(self):
+        """Cloudflare Pages reads cache and security headers from _headers at deploy."""
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "_headers")))
 
     def test_sitemap_and_robots_reference_the_production_domain(self):

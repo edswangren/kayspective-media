@@ -14,7 +14,7 @@ are easy to break.
 python3 -m http.server 8747                          # dev server — edit, refresh
 python3 tools/build_assets.py                        # regenerate every derived asset
 python3 -m unittest discover -s tests                # python suite (~0.6s, no deps)
-node --test tests/*.test.mjs                          # intake validation (node's runner)
+node --test tests/*.test.mjs                          # intake + type-ahead (node's runner)
 python3 -m unittest tests.test_markup                # one module
 python3 -m unittest tests.test_markup.TestContentRules.test_current_employer_is_never_named
 
@@ -78,6 +78,8 @@ the feathered edge fringes her hair green.
 | `test_design_tokens.py` | palette values, WCAG contrast matrix, CSS hygiene |
 | `test_markup.py` | asset paths, image dimensions, links, metadata, content rules |
 | `test_asset_pipeline.py` | colour maths, mask behaviour, generated-asset geometry |
+| `validate.test.mjs` | intake validation, header injection, email body assembly |
+| `photon.test.mjs` | type-ahead URL building, label formatting, dedup |
 
 Two conventions worth keeping:
 
@@ -133,11 +135,9 @@ validates a submission, emails Kay via Resend, and sends the enquirer a confirma
 - The `<option>` list and `SUPPORT_LEVELS` in the validator must stay identical — a
   drift silently rejects real submissions, and a test enforces it.
 
-Local dev with the Function needs wrangler rather than `http.server`:
-
-```sh
-npx wrangler pages dev . --port 8788 --compatibility-date=2025-01-01
-```
+Local dev with the Function needs wrangler rather than `http.server` — see Commands.
+Point it at `dist/`, not the repo root: `_routes.json` only exists there, so serving `.`
+runs Functions on every path and re-exposes `tools/`, `tests/`, and `assets/src/`.
 
 ### City type-ahead
 
@@ -181,9 +181,10 @@ correct for rules, borders, and large display type, but **below WCAG AA for smal
 Use `--gold-text` for anything under 24px. Neither passes on the blush CTA band, which is
 why the closing email link keeps `--ink` and only moves its underline on hover.
 
-**The `js` class gates all content.** An inline script in `<head>` adds `.js` to
-`<html>`, and only `.js .reveal` is hidden. Without it the reveal animations would leave
-the entire page invisible when JS fails. Do not move the hidden state onto bare `.reveal`.
+**The `js` class gates the landing page's content.** An inline script in `<head>` of
+`index.html` — the only page with `.reveal` elements — adds `.js` to `<html>`, and only
+`.js .reveal` is hidden. Without it the reveal animations would leave the whole page
+invisible when JS fails. Do not move the hidden state onto bare `.reveal`.
 
 **Do not remove the sweep in `main.js`.** The reveal observer's negative bottom
 `rootMargin` creates a dead zone at the foot of the viewport. Elements sitting in it when
@@ -202,9 +203,6 @@ If you add another CSS-background image, wire its half-size variant the same way
 position outruns the IntersectionObserver, and reading `opacity` mid-transition (700ms plus
 up to 450ms of stagger) reports elements as hidden that are actually fading in. Scroll at a
 human pace and wait ~2.5s before asserting.
-
-**`.nojekyll` is required.** GitHub Pages runs Jekyll by default, which silently strips
-files beginning with an underscore — it would eat `_headers`.
 
 **The `noindex` and canonical are hostname-scoped on purpose.** The review preview carries
 `noindex, nofollow`; both it and the canonical switch themselves off automatically once the
