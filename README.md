@@ -176,6 +176,26 @@ On the live domain, and locally at 390 / 768 / 1440:
 - City type-ahead returns Austin first, and falls back to plain text if Photon is
   unreachable
 
+### Where credentials live, and why
+
+There is no CI today — deploys are run by hand with the command above.
+
+| Credential | Lives in | Why there |
+|---|---|---|
+| `RESEND_API_KEY` | Cloudflare Pages secret | The Function reads it at request time. Nothing else needs it. |
+| `INTAKE_TO`, `INTAKE_FROM` | Cloudflare Pages secrets | Same — runtime config. |
+| Cloudflare credentials | `wrangler login` on the operator's machine | Only needed to deploy. |
+
+`.planning/resend-api-key` is a local convenience copy, gitignored and not in the repo.
+The Pages secret is the authoritative store; deleting the local file breaks nothing.
+
+**Decision for next round — automated deploys.** If we add a GitHub Action that deploys
+on push to `main`, the repository secret it needs is `CLOUDFLARE_API_TOKEN` (scoped to
+`Account → Cloudflare Pages → Edit`), *not* the Resend key. Runtime credentials belong in
+the Pages environment, and putting them in GitHub as well would mean two copies to rotate
+and one more place to leak from. The workflow itself is short — `cloudflare/wrangler-action`
+with the same deploy command — so the only real work is creating and storing that token.
+
 ## Known follow-ups
 
 - **About copy needs Kay's approval.** It is live and drafted from her real background.
@@ -186,3 +206,5 @@ On the live domain, and locally at 390 / 768 / 1440:
   original portrait. Harmless on a public repo. A small build step emitting `dist/`
   would tidy it.
 - **Bot protection is the honeypot only.** `TURNSTILE_SECRET` is wired but unset.
+- **No CI.** Deploys are manual. See the credentials table above for what an automated
+  deploy would need, and what it deliberately would not.
