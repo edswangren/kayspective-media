@@ -79,21 +79,32 @@ class TestAssetIntegrity(unittest.TestCase):
             with self.subTest(ref=ref):
                 self.assertTrue(os.path.isfile(os.path.join(ROOT, ref)), f"missing: {ref}")
 
-    def test_no_external_subresources(self):
-        """The page must make zero third-party requests.
+    def test_third_party_subresources_are_only_the_vetted_ones(self):
+        """Every host the page loads on sight is one we chose deliberately.
+
+        Fonts and imagery are self-hosted, so the list stays short: Turnstile is
+        the only entry, and it is here because bot protection cannot be done in
+        first-party code. A new host appearing is not automatically wrong -- it
+        just has to be a decision rather than a drifted-in dependency.
 
         Outbound <a> links and metadata (canonical, og:*) are not fetched, so only
         rels the browser actually loads are in scope.
         """
+        ALLOWED = {"challenges.cloudflare.com"}
         FETCHED = {"stylesheet", "preload", "icon", "apple-touch-icon", "manifest", "preconnect"}
+
+        def host(url):
+            return url.split("//", 1)[1].split("/", 1)[0]
+
         for a in of("link"):
-            if a.get("rel") in FETCHED and a.get("href", "").startswith("http"):
-                self.fail(f"external subresource: <link rel={a['rel']} href={a['href']}>")
+            href = a.get("href", "")
+            if a.get("rel") in FETCHED and href.startswith("http") and host(href) not in ALLOWED:
+                self.fail(f"unvetted subresource: <link rel={a['rel']} href={href}>")
         for tag, attr in (("script", "src"), ("img", "src")):
             for a in of(tag):
                 v = a.get(attr)
-                if v and v.startswith("http"):
-                    self.fail(f"external subresource: <{tag} {attr}={v}>")
+                if v and v.startswith("http") and host(v) not in ALLOWED:
+                    self.fail(f"unvetted subresource: <{tag} {attr}={v}>")
 
     def test_declared_image_dimensions_match_the_files_aspect_ratio(self):
         """Wrong ratios reintroduce layout shift even when width/height are present."""
@@ -171,9 +182,62 @@ class TestOutboundLinks(unittest.TestCase):
         self.assertTrue(any(h.startswith("mailto:kayspectivemedia@gmail.com") for h in hrefs))
         self.assertTrue(any("instagram.com/kayspective.media" in h for h in hrefs))
 
+    def test_linked_profiles_and_structured_data_agree(self):
+        """Every off-site profile we link is also declared in JSON-LD sameAs, and
+        nothing is declared that the page does not link. Adding a social account in
+        one place and forgetting the other is the failure this catches; if an
+        external link is ever added that is *not* one of Kay's profiles, this test
+        is the deliberate prompt to decide which set it belongs to."""
+        linked = {a["href"] for a in of("a")
+                  if a.get("href", "").startswith("http")}
+        org = json.loads(DOC.ld_json[0])
+        declared = set(org.get("sameAs", []))
+        self.assertEqual(linked, declared,
+                         "footer profile links and JSON-LD sameAs have drifted")
+
     def test_no_placeholder_or_dead_links(self):
         for a in of("a"):
             self.assertNotIn(a.get("href"), ("#", "", None), "placeholder href left in markup")
+
+
+class TestBotProtection(unittest.TestCase):
+    """Turnstile is a managed widget in interaction-only mode: nothing is shown to
+    an ordinary visitor, and a checkbox appears only when Cloudflare's signals ask
+    for one. Anything that quietly turns it into an always-on captcha, or that
+    leaves a visitor with no route to Kay, is a regression."""
+
+    # Cloudflare's documented development keys. They always pass, so shipping one
+    # would leave the form protected in appearance only.
+    TEST_SITEKEYS = {"1x00000000000000000000AA", "2x00000000000000000000AB",
+                     "3x00000000000000000000FF"}
+
+    def widget(self):
+        found = [a for a in of("div") if "cf-turnstile" in (a.get("class") or "")]
+        self.assertEqual(len(found), 1, "expected exactly one Turnstile widget")
+        return found[0]
+
+    def test_widget_never_demands_interaction_from_every_visitor(self):
+        self.assertEqual(self.widget().get("data-appearance"), "interaction-only")
+
+    def test_widget_carries_a_production_sitekey(self):
+        key = self.widget().get("data-sitekey", "")
+        self.assertTrue(key, "widget has no data-sitekey")
+        self.assertNotIn(key, self.TEST_SITEKEYS,
+                         "a Cloudflare development sitekey is in the markup: it always "
+                         "passes, so the form only looks protected. Swap in the real one.")
+
+    def test_visitors_without_javascript_are_told_how_to_reach_kay(self):
+        """The widget needs JS, so those visitors cannot submit at all. Silence
+        would read as a broken form; they get the email address instead."""
+        block = re.search(r"<noscript>(.*?)</noscript>", HTML, re.S)
+        self.assertIsNotNone(block, "no <noscript> fallback in the intake form")
+        self.assertIn("mailto:kayspectivemedia@gmail.com", block.group(1))
+
+    def test_the_honeypot_is_still_there(self):
+        """Turnstile supplements the trap rather than replacing it -- the honeypot
+        costs nothing and catches the bots that render JS but read the DOM."""
+        hp = [a for a in of("input") if a.get("name") == "website"]
+        self.assertEqual(len(hp), 1)
 
 
 class TestContentRules(unittest.TestCase):

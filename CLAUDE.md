@@ -18,14 +18,19 @@ node --test tests/*.test.mjs                          # intake validation (node'
 python3 -m unittest tests.test_markup                # one module
 python3 -m unittest tests.test_markup.TestContentRules.test_current_employer_is_never_named
 
-npx wrangler pages dev . --port 8788 --compatibility-date=2025-01-01   # with Functions
-npx wrangler pages deploy . --project-name kayspective-media --branch main
+npx wrangler pages dev dist --port 8788 --compatibility-date=2025-01-01  # with Functions
+python3 tools/build_site.py                          # assemble dist/ (the deploy output)
+npx wrangler pages deploy dist --project-name kayspective-media --branch main
 ```
+
+Deploys normally happen by pushing to `main` — `.github/workflows/deploy.yml` runs both
+suites, builds `dist/`, and publishes. The commands above are the manual fallback.
 
 `python3 -m http.server` is enough for everything except the contact form, which needs
 the wrangler dev server to run the Function.
 
-There is no build step, no package manager, and no linter. Tests are stdlib `unittest`
+There is no compile step, no package manager, and no linter — `tools/build_site.py`
+only copies the shippable files into `dist/`. Tests are stdlib `unittest`
 (Pillow and numpy are needed only for the asset-pipeline module, which the build already
 requires). They cover colour maths, generated-asset geometry, and markup/link/contrast
 invariants — everything that does **not** require a renderer. Layout, focus order, and
@@ -37,10 +42,11 @@ Three hand-written files do all the work — `index.html`, `styles.css`, `main.j
 framework and no runtime dependencies. Fonts are self-hosted variable WOFF2 (one file per
 family covers weights 300–500).
 
-**The page loads with zero external network requests.** The single exception is the city
-type-ahead, which calls Photon only once someone types into that field — never on load.
-A test pins `photon.komoot.io` as the only permitted third party. Adding a CDN link or an
-npm dependency changes the nature of the project.
+**Two third parties, both deliberate.** Cloudflare Turnstile loads on sight for the
+form's bot check; Photon is called by the city type-ahead only once someone types into
+that field. A test holds the subresource allowlist to those, not because more is
+forbidden but so a new dependency is a decision rather than drift. Everything else —
+fonts, imagery — is self-hosted.
 
 `main.js` is an ES module (`<script type="module">`), so it can import `lib/photon.js`.
 Modules are deferred by default — do not re-add a `defer` attribute.
@@ -98,14 +104,24 @@ validates a submission, emails Kay via Resend, and sends the enquirer a confirma
   With none set, the Function returns a 503 telling the visitor to email instead, which
   is why local development works without credentials. **Secrets only reach a new
   deployment** — redeploy after changing one, or the running version keeps the old value.
-- `TURNSTILE_SECRET` is deliberately unset: bot protection is currently the honeypot
-  alone. Add the secret and a widget if spam becomes a problem.
+- **Turnstile is a managed widget in `interaction-only` mode.** It renders at zero
+  height for an ordinary visitor and only becomes a checkbox when Cloudflare's risk
+  signals ask for one — anything that makes it show for everyone is a regression, and a
+  test pins the mode. Cloudflare's development sitekeys always pass, so a test also
+  fails if one is left in the markup.
+- **Turnstile means the form no longer works without JavaScript**, and that was a
+  deliberate trade. No JS means no token; the server cannot tell that visitor from a bot
+  that simply omitted one, so both are refused. They are sent to `/thank-you/?error=verify`,
+  which names JavaScript as the likely cause and gives them the email address, and a
+  `<noscript>` block in the form says the same thing before they try. Do not "fix" this
+  by letting tokenless posts through — that is the whole bypass.
 - Resend's API key is send-only, so it cannot list domains or read logs — a failed
   `api.resend.com/domains` call means the key is scoped correctly, not broken.
-- **The form must keep working without JavaScript.** It is a real `<form>` that POSTs
-  and redirects to `/thank-you/`; `main.js` only intercepts to avoid the reload. A
-  delivery failure redirects to `/thank-you/?error=1`, which must never thank someone
-  whose enquiry did not arrive.
+- **The form is still a real `<form>` that POSTs and redirects** to `/thank-you/`;
+  `main.js` only intercepts to avoid the reload. A delivery failure redirects to
+  `/thank-you/?error=1`, which must never thank someone whose enquiry did not arrive.
+  Turnstile tokens are single-use, so the fetch path resets the widget on any failure —
+  without that, a second attempt after a validation error posts a spent token.
 - Bots that trip the honeypot get the same response shape as success and nothing is
   sent, so they learn nothing.
 - The `<option>` list and `SUPPORT_LEVELS` in the validator must stay identical — a
@@ -195,8 +211,15 @@ launch.
   from the domain via DKIM/SPF/MX on `send`, all DNS-only (grey cloud).
 - The Resend key lives in `.planning/resend-api-key`, which is gitignored and **not in
   the repo** — a fresh clone will not have it. Retrieve it from Resend or the user.
-- A deploy uploads the whole repo root, so `tools/`, `tests/`, and `assets/src/` are
-  publicly reachable. `functions/` and `.git/` are excluded automatically.
+- A deploy uploads `dist/`, not the repo root, so `tools/`, `tests/`, and `assets/src/`
+  are no longer publicly reachable. `tools/build_site.py` is an allowlist — a new asset
+  has to be named there or the build fails on the reference check.
+- **The Pages project is Direct Upload and cannot be converted to a Git-connected one.**
+  That is why CI deploys with wrangler instead of Cloudflare's GitHub integration; going
+  the other way would mean a new project, moving the custom domain, and re-adding every
+  secret. CI authenticates with `CLOUDFLARE_API_TOKEN` (`Account -> Cloudflare Pages ->
+  Edit`) plus `CLOUDFLARE_ACCOUNT_ID`, both GitHub repository secrets. Runtime secrets
+  stay Pages-side and are deliberately not duplicated in GitHub.
 - **Cloudflare Pages is the only host.** GitHub Pages was used for early review and has
   been deleted — do not re-enable it. Pages Functions do not run there, so the contact
   form cannot work on GitHub Pages, and a second copy of the site only splits traffic.

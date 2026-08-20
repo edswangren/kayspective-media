@@ -98,11 +98,19 @@ async function handlePost({ request, env }) {
     return redirect(request, "/thank-you/?error=1");
   }
 
+  // A missing token and a rejected one are different situations. The widget is
+  // JavaScript, so no token usually means a visitor with JS off rather than a
+  // bot -- they get told to email instead. The server cannot tell the two apart,
+  // so both are still refused; only the wording differs.
   const token = fields["cf-turnstile-response"];
   const ip = request.headers.get("cf-connecting-ip");
+  if (env.TURNSTILE_SECRET && !token) {
+    const message = "This form needs JavaScript to verify you're human. Please email kayspectivemedia@gmail.com instead.";
+    return wantsJson(request) ? json({ ok: false, message }, 403) : redirect(request, "/thank-you/?error=verify");
+  }
   if (!(await passesTurnstile(env, token, ip))) {
     const message = "Could not verify you're human. Please try again, or email kayspectivemedia@gmail.com.";
-    return wantsJson(request) ? json({ ok: false, message }, 403) : redirect(request, "/thank-you/?error=1");
+    return wantsJson(request) ? json({ ok: false, message }, 403) : redirect(request, "/thank-you/?error=verify");
   }
 
   if (!env.RESEND_API_KEY || !env.INTAKE_TO || !env.INTAKE_FROM) {

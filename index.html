@@ -50,10 +50,12 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
   "founder": { "@type": "Person", "name": "Kaylin Mee" },
   "address": { "@type": "PostalAddress", "addressLocality": "Austin", "addressRegion": "TX", "addressCountry": "US" },
   "areaServed": { "@type": "City", "name": "Austin" },
-  "sameAs": ["https://www.instagram.com/kayspective.media"],
+  "sameAs": ["https://www.instagram.com/kayspective.media",
+             "https://www.facebook.com/profile.php?id=61593533099019"],
   "knowsAbout": ["Social media content creation", "Social media management", "Content strategy", "Hospitality marketing"]
 }
 </script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -311,6 +313,22 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
         <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off">
       </p>
 
+      <!-- Managed widget in interaction-only mode: invisible for ordinary
+           visitors, and only materialises as a checkbox when Cloudflare's risk
+           signals call for one. It injects the cf-turnstile-response token into
+           this form, which the Function verifies. -->
+      <div class="turnstile cf-turnstile"
+           data-sitekey="0x4AAAAAAEWW2EXfVwod5ZQl"
+           data-appearance="interaction-only"
+           data-action="intake"
+           data-theme="light"></div>
+      <noscript>
+        <p class="form-note form-note-noscript">This form needs JavaScript to verify
+          you&rsquo;re human. With it switched off, please email
+          <a href="mailto:kayspectivemedia@gmail.com">kayspectivemedia@gmail.com</a>
+          instead and I&rsquo;ll pick it up.</p>
+      </noscript>
+
       <div class="form-foot">
         <button class="btn btn-solid btn-lg" type="submit" id="intake-submit">Send it over</button>
         <p class="form-note">Goes straight to Kay. No newsletter, ever.</p>
@@ -333,6 +351,7 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
     </div>
     <nav class="footer-links" aria-label="Footer">
       <a href="https://www.instagram.com/kayspective.media" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.facebook.com/profile.php?id=61593533099019" target="_blank" rel="noopener">Facebook</a>
       <a href="mailto:kayspectivemedia@gmail.com">Email</a>
     </nav>
     <p class="footer-legal">&copy; 2026 Kayspective Media &middot; Austin, Texas</p>

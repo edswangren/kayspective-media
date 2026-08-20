@@ -137,6 +137,9 @@ addEventListener('keydown', function (e) {
       form.removeAttribute('data-sending');
       submit.disabled = false;
       submit.textContent = original;
+      /* Turnstile tokens are single-use: without a reset, a second attempt after
+         a validation error would send a spent token and be refused. */
+      if (window.turnstile) window.turnstile.reset();
     };
 
     fetch(form.action, {

@@ -396,6 +396,13 @@ em { font-style: italic; }
    wrap in space that fits one. */
 .form-note { font-size: .84rem; color: var(--ink-soft); margin: 0 !important; text-align: left; flex: 1 1 14rem; }
 
+/* Turnstile in interaction-only mode injects its iframe but shows nothing for
+   ordinary visitors, so the container must not reserve vertical space of its
+   own -- line-height: 0 keeps the inline box from adding a stray text row. The
+   form-foot below already carries the separation a visible challenge needs. */
+.turnstile { line-height: 0; }
+.form-note-noscript { margin-top: 1.5rem !important; max-width: 48ch; flex: none; }
+
 .intake[data-sending] { opacity: .6; pointer-events: none; }
 
 .form-status {

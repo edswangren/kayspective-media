@@ -5,6 +5,14 @@ RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
 INTAKE_TO="kayspectivemedia@gmail.com"
 INTAKE_FROM="Kayspective Media <hello@kayspectivemedia.com>"
 
-# Optional. When unset, bot checking is skipped — which is what makes local
-# development work without a Turnstile widget on the page.
+# Set in production. When unset, bot checking is skipped entirely, so local
+# development works without it.
+#
+# To exercise the check locally, use Cloudflare's documented dummy secret rather
+# than the real one — it verifies the dummy token the testing sitekeys produce:
+#   always passes:  1x0000000000000000000000000000000AA
+#   always fails:   2x0000000000000000000000000000000AA
+# The matching testing sitekeys are 1x00000000000000000000AA (invisible, passes)
+# and 3x00000000000000000000FF (forces the interactive checkbox, for eyeballing
+# what a challenged visitor sees).
 # TURNSTILE_SECRET="0x4xxxxxxxxxxxxxxxxxxxx"

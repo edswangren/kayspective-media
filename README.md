@@ -7,7 +7,8 @@ hospitality (spas, restaurants, hotels) founded by Kaylin "Kay" Mee in Austin, T
 
 **Live:** <https://kayspectivemedia.com> — Cloudflare Pages, project `kayspective-media`.
 
-No framework, no build step, no dependencies at runtime. Three files do the work:
+No framework, no runtime dependencies, and no compile step — the deploy build only
+copies the shippable files into `dist/`. Three files do the work:
 `index.html`, `styles.css`, `main.js`, plus one Pages Function for the contact form.
 
 Non-production hostnames (localhost, `*.pages.dev`) serve a `noindex, nofollow` tag and
@@ -47,14 +48,30 @@ the browser pass.
 
 ## Deploying
 
+Push to `main`. `.github/workflows/deploy.yml` runs both test suites, builds `dist/`,
+and publishes it to Cloudflare Pages; a pull request deploys to its own preview URL
+instead. By hand, when you need it:
+
 ```sh
-npx wrangler pages deploy . --project-name kayspective-media --branch main
+python3 tools/build_site.py                                            # -> dist/
+npx wrangler pages deploy dist --project-name kayspective-media --branch main
 ```
 
-That is the whole deploy. There is no build step, so the repo root is the output
-directory. `_headers` sets long-lived caching for `/assets/*` plus basic security
-headers; `_routes.json` confines Functions to `/api/intake` so every other path is
-served as a static asset.
+`tools/build_site.py` copies out the shippable subset — about 1 MB of the repo's 13 —
+leaving behind `tools/`, `tests/`, and the source imagery in `assets/src/`. It is an
+allowlist, so a file added to the repo is not published until it is named there, and
+the build fails if a page references something the allowlist did not copy.
+
+`functions/` stays at the repo root rather than moving into `dist/`: Cloudflare
+requires it outside the static output directory, and wrangler picks it up from the
+working directory. `_headers` sets long-lived caching for `/assets/*` plus basic
+security headers; `_routes.json` confines Functions to `/api/intake` so every other
+path is served as a static asset.
+
+The Pages project is a **Direct Upload** project. Cloudflare cannot convert one to a
+Git-connected project, which is why deploys go through wrangler in CI rather than
+Cloudflare's own GitHub integration; switching would mean a new project, moving the
+custom domain, and re-adding every secret.
 
 DNS lives in the same Cloudflare account: `kayspectivemedia.com` and `www` are both
 CNAMEs to `kayspective-media.pages.dev`, proxied.
@@ -69,8 +86,12 @@ printf '%s' "kayspectivemedia@gmail.com" | npx wrangler pages secret put INTAKE_
 printf '%s' "Kayspective Media <hello@kayspectivemedia.com>" | npx wrangler pages secret put INTAKE_FROM --project-name kayspective-media
 ```
 
-`TURNSTILE_SECRET` is optional and unset — bot checking is currently the honeypot alone.
-**Secrets only reach a new deployment**, so redeploy after changing one.
+`TURNSTILE_SECRET` is the fourth, set the same way. **Secrets only reach a new
+deployment**, so redeploy after changing one.
+
+CI needs two GitHub repository secrets of its own: `CLOUDFLARE_API_TOKEN` (scoped to
+`Account -> Cloudflare Pages -> Edit`) and `CLOUDFLARE_ACCOUNT_ID`. The runtime
+secrets above are deliberately *not* duplicated there.
 
 Resend sends from `kayspectivemedia.com` (verified via DKIM/SPF/MX on `send`). Enquiries
 land in `kayspectivemedia@gmail.com` with reply-to set to the enquirer, and the enquirer
@@ -87,9 +108,9 @@ eyebrows, and rules. Nothing is allowed to out-saturate the logo. Blush appears
 exactly once, as the closing CTA wash.
 
 **Type:** Cormorant Garamond (display) + Jost (UI). Both self-hosted variable fonts —
-one 37 KB and one 26 KB file covering weights 300–500. The page **loads with zero external
-network requests**; the only third party is Photon, called by the city type-ahead once
-someone types into that field.
+one 37 KB and one 26 KB file covering weights 300–500. Two third parties are called,
+both deliberate: Cloudflare Turnstile for the form's bot check, and Photon for the city
+type-ahead, which only fires once someone types into that field.
 
 **Palette** — Kay's four brand colors, plus derived neutrals her palette doesn't specify:
 
@@ -168,40 +189,42 @@ On the live domain, and locally at 390 / 768 / 1440:
   rendered colours, not assumed from tokens
 - Zero external requests on page load; zero console errors
 - All tab stops have a visible focus ring; skip link first
-- Full content renders **without JavaScript** and under `prefers-reduced-motion`
+- Full content renders **without JavaScript** and under `prefers-reduced-motion`.
+  The *form* is the exception since Turnstile went in: a visitor with JS off cannot
+  produce a bot-check token, so they get the email address instead of a submission
+  they think worked
 - Contact form delivers end to end: a real submission reached the inbox from
   `hello@kayspectivemedia.com`, with reply-to set to the enquirer
 - Form degrades correctly: validation errors inline, honeypot silently accepted,
-  delivery failure redirects to `/thank-you/?error=1` rather than claiming success
+  delivery failure redirects to `/thank-you/?error=1` rather than claiming success,
+  and a missing bot-check token to `?error=verify`, which names JavaScript as the
+  likely cause rather than blaming the send
+- Turnstile stays invisible for an ordinary visitor (widget renders at zero height)
+  and appears as a single checkbox above the button when a challenge is forced
 - City type-ahead returns Austin first, and falls back to plain text if Photon is
   unreachable
 
 ### Where credentials live, and why
 
-There is no CI today — deploys are run by hand with the command above.
+Deploys run in GitHub Actions; the table below is what each credential is for and
+why it lives where it does.
 
 | Credential | Lives in | Why there |
 |---|---|---|
 | `RESEND_API_KEY` | Cloudflare Pages secret | The Function reads it at request time. Nothing else needs it. |
 | `INTAKE_TO`, `INTAKE_FROM` | Cloudflare Pages secrets | Same — runtime config. |
-| Cloudflare credentials | `wrangler login` on the operator's machine | Only needed to deploy. |
+| `TURNSTILE_SECRET` | Cloudflare Pages secret | Same — the Function verifies the token at request time. |
+| `CLOUDFLARE_API_TOKEN` | GitHub repository secret | CI needs it to deploy, and nothing else does. Scoped to Pages Edit only. |
+| Cloudflare credentials | `wrangler login` on the operator's machine | Only needed for a manual deploy. |
 
 `.planning/resend-api-key` is a local convenience copy, gitignored and not in the repo.
 The Pages secret is the authoritative store; deleting the local file breaks nothing.
 
-**Decision for next round — automated deploys.** If we add a GitHub Action that deploys
-on push to `main`, the repository secret it needs is `CLOUDFLARE_API_TOKEN` (scoped to
-`Account → Cloudflare Pages → Edit`), *not* the Resend key. Runtime credentials belong in
-the Pages environment, and putting them in GitHub as well would mean two copies to rotate
-and one more place to leak from. The workflow itself is short — `cloudflare/wrangler-action`
-with the same deploy command — so the only real work is creating and storing that token.
+**Why the Resend key is not a GitHub secret.** Runtime credentials belong in the
+Pages environment. Putting them in GitHub as well would mean two copies to rotate and
+one more place to leak from, for no benefit — the Action never sends email, it only
+uploads files.
 
 ## Known follow-ups
 
 - **About copy needs Kay's approval.** It is live and drafted from her real background.
-- **A deploy publishes the whole repo**, including `tools/`, `tests/`, and the 2 MB
-  original portrait. Harmless on a public repo. A small build step emitting `dist/`
-  would tidy it.
-- **Bot protection is the honeypot only.** `TURNSTILE_SECRET` is wired but unset.
-- **No CI.** Deploys are manual. See the credentials table above for what an automated
-  deploy would need, and what it deliberately would not.

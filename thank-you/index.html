@@ -34,13 +34,20 @@
   </div>
 </main>
 <script>
-  // The Function redirects here with ?error=1 when delivery failed, so the page
-  // must not thank someone whose enquiry never arrived.
-  if (new URLSearchParams(location.search).has('error')) {
+  // The Function redirects here with ?error=... when the enquiry did not arrive,
+  // so the page must not thank someone whose details never reached Kay.
+  // ?error=verify is the bot check specifically: a visitor without JavaScript
+  // never gets a Turnstile token, and telling them 'something went wrong' would
+  // send them back to retry a form that cannot succeed.
+  var reason = new URLSearchParams(location.search).get('error');
+  if (reason) {
     document.getElementById('thanks-title').textContent = 'That didn’t go through.';
-    document.getElementById('thanks-body').innerHTML =
-      'Something went wrong sending your details. Please email ' +
-      '<a href="mailto:kayspectivemedia@gmail.com">kayspectivemedia@gmail.com</a> and I’ll pick it up right away.';
+    document.getElementById('thanks-body').innerHTML = reason === 'verify'
+      ? 'The form could not verify you’re human — that usually means JavaScript is ' +
+        'switched off. Please email <a href="mailto:kayspectivemedia@gmail.com">' +
+        'kayspectivemedia@gmail.com</a> and I’ll pick it up right away.'
+      : 'Something went wrong sending your details. Please email ' +
+        '<a href="mailto:kayspectivemedia@gmail.com">kayspectivemedia@gmail.com</a> and I’ll pick it up right away.';
     document.querySelector('.eyebrow').textContent = 'Not sent';
   }
 </script>

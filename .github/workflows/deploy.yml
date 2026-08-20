@@ -1,0 +1,75 @@
+# Test, build, and publish to Cloudflare Pages.
+#
+# The Pages project is a Direct Upload project, so this uses wrangler rather than
+# Cloudflare's Git integration (a Direct Upload project cannot be converted to a
+# Git-connected one). The upshot is that the deploy is the same command that was
+# previously run by hand, with the test suites in front of it as a gate.
+#
+# Repository secrets required:
+#   CLOUDFLARE_API_TOKEN   scoped to Account -> Cloudflare Pages -> Edit
+#   CLOUDFLARE_ACCOUNT_ID  601c9bd446100addb50b674d9740600c
+#
+# Runtime secrets (RESEND_API_KEY, INTAKE_*, TURNSTILE_SECRET) deliberately do NOT
+# live here -- they are Pages secrets, read by the Function at request time. Two
+# copies would mean two places to rotate and one more to leak from.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Only the asset-pipeline tests need these; everything else is stdlib.
+      - run: pip install pillow numpy
+      - run: python3 -m unittest discover -s tests
+      - run: node --test tests/*.test.mjs
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # Fork PRs cannot see the secrets, so there is nothing to deploy with.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
+      url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # dist/ is the shippable subset: no tools/, tests/, or assets/src/.
+      - run: python3 tools/build_site.py
+
+      # `functions/` stays at the repo root -- Cloudflare requires it outside the
+      # static output directory, and wrangler picks it up from the working
+      # directory. Deploying dist/ still ships /api/intake.
+      #
+      # A push to main is a production deploy; a PR deploys to a preview branch
+      # and gets its own URL, which serves noindex via the hostname guard.
+      - uses: cloudflare/wrangler-action@v4
+        id: deploy
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy dist
+            --project-name kayspective-media
+            --branch ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
+            --commit-hash ${{ github.sha }}
