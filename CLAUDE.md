@@ -3,8 +3,10 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 A single static landing page for Kayspective Media, a social content studio for luxury
-hospitality founded by Kaylin "Kay" Mee in Austin, TX. `README.md` covers deployment and
-the design rationale; this file covers the parts that are easy to break.
+hospitality founded by Kaylin "Kay" Mee in Austin, TX. **Live at
+<https://kayspectivemedia.com>** on Cloudflare Pages (project `kayspective-media`).
+`README.md` covers deployment and the design rationale; this file covers the parts that
+are easy to break.
 
 ## Commands
 
@@ -15,7 +17,13 @@ python3 -m unittest discover -s tests                # python suite (~0.6s, no d
 node --test tests/*.test.mjs                          # intake validation (node's runner)
 python3 -m unittest tests.test_markup                # one module
 python3 -m unittest tests.test_markup.TestContentRules.test_current_employer_is_never_named
+
+npx wrangler pages dev . --port 8788 --compatibility-date=2025-01-01   # with Functions
+npx wrangler pages deploy . --project-name kayspective-media --branch main
 ```
+
+`python3 -m http.server` is enough for everything except the contact form, which needs
+the wrangler dev server to run the Function.
 
 There is no build step, no package manager, and no linter. Tests are stdlib `unittest`
 (Pillow and numpy are needed only for the asset-pipeline module, which the build already
@@ -88,7 +96,12 @@ validates a submission, emails Kay via Resend, and sends the enquirer a confirma
 - Secrets (`RESEND_API_KEY`, `INTAKE_TO`, `INTAKE_FROM`, optional `TURNSTILE_SECRET`)
   are Pages secrets in production and `.dev.vars` locally — see `.dev.vars.example`.
   With none set, the Function returns a 503 telling the visitor to email instead, which
-  is why local development works without credentials.
+  is why local development works without credentials. **Secrets only reach a new
+  deployment** — redeploy after changing one, or the running version keeps the old value.
+- `TURNSTILE_SECRET` is deliberately unset: bot protection is currently the honeypot
+  alone. Add the secret and a widget if spam becomes a problem.
+- Resend's API key is send-only, so it cannot list domains or read logs — a failed
+  `api.resend.com/domains` call means the key is scoped correctly, not broken.
 - **The form must keep working without JavaScript.** It is a real `<form>` that POSTs
   and redirects to `/thank-you/`; `main.js` only intercepts to avoid the reload. A
   delivery failure redirects to `/thank-you/?error=1`, which must never thank someone
@@ -189,10 +202,11 @@ These are correctness constraints on a live business site, not style preferences
 Before calling visual or accessibility work done, check in a real browser at 390 / 768 /
 1440 (Chrome DevTools MCP is available):
 
-- Lighthouse — 100 for accessibility and best practices. **SEO reads 69 on localhost and
-  on previews, and that is correct**: the hostname-scoped guard applies `noindex`
-  everywhere except `kayspectivemedia.com`, so the `is-crawlable` audit fails by design.
-  Only a drop in accessibility or best practices is a regression.
+- Lighthouse — 100 across accessibility, best practices, and SEO **on the live domain**.
+  **SEO reads 69 on localhost and on `*.pages.dev`, and that is correct**: the
+  hostname-scoped guard applies `noindex` everywhere except `kayspectivemedia.com`, so
+  the `is-crawlable` audit fails by design off-production. Only a drop in accessibility
+  or best practices is a regression locally.
 - Contrast: every text/background pair at 4.5:1 (3:1 for large type), audited against the
   *rendered* colors rather than assumed from tokens
 - Zero external requests, zero console errors, no horizontal scroll

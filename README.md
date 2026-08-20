@@ -5,15 +5,15 @@ hospitality (spas, restaurants, hotels) founded by Kaylin "Kay" Mee in Austin, T
 
 **Tagline:** *Content with perspective*
 
-**Review preview:** <https://edswangren.github.io/kayspective-media/>
-Served from `main` by GitHub Pages, and rebuilt on every push. It carries a
-`noindex, nofollow` tag and a canonical pointing at `kayspectivemedia.com`, both
-scoped by hostname — so the preview can never compete with the real domain in
-search, and both switch themselves off automatically once the site is served from
-the production domain. Nothing to remember to undo at launch.
+**Live:** <https://kayspectivemedia.com> — Cloudflare Pages, project `kayspective-media`.
 
 No framework, no build step, no dependencies at runtime. Three files do the work:
-`index.html`, `styles.css`, `main.js`. Everything else is an asset.
+`index.html`, `styles.css`, `main.js`, plus one Pages Function for the contact form.
+
+Non-production hostnames (localhost, `*.pages.dev`) serve a `noindex, nofollow` tag and
+a canonical pointing at the real domain, scoped by hostname. Both switch themselves off
+on `kayspectivemedia.com`, so previews can never compete with it in search and there is
+nothing to remember to undo.
 
 ---
 
@@ -35,7 +35,7 @@ node --test tests/*.test.mjs            # intake form validation
 
 (`node --test tests/` does not work — node reads a bare directory as a module path.)
 
-No dependencies to install, under a second. 91 checks covering the colour maths behind
+No dependencies to install, under a second. 106 checks covering the colour maths behind
 the generated imagery, the geometry of every produced asset, intake-form validation, and
 markup invariants — local asset paths resolve, declared image dimensions match the files,
 external links carry `rel="noopener"`, the intake link is the public form rather than the
@@ -45,18 +45,36 @@ are not violated.
 They deliberately stop where a renderer is required; layout and Lighthouse are covered by
 the browser pass.
 
-## Deploying (not done yet)
+## Deploying
 
-Cloudflare Pages, when you're ready:
+```sh
+npx wrangler pages deploy . --project-name kayspective-media --branch main
+```
 
-1. Connect this repo.
-2. **Build command:** *(leave empty)* · **Output directory:** `/`
-3. Attach `kayspectivemedia.com` in the Pages project.
+That is the whole deploy. There is no build step, so the repo root is the output
+directory. `_headers` sets long-lived caching for `/assets/*` plus basic security
+headers; `_routes.json` confines Functions to `/api/intake` so every other path is
+served as a static asset.
 
-Since the domain is registered in the same Cloudflare account, DNS is one click —
-no nameserver changes. Canonical URLs, OG tags, and `sitemap.xml` already point at
-`https://kayspectivemedia.com/`, so nothing needs editing at deploy time.
-`_headers` sets long-lived caching for `/assets/*` and basic security headers.
+DNS lives in the same Cloudflare account: `kayspectivemedia.com` and `www` are both
+CNAMEs to `kayspective-media.pages.dev`, proxied.
+
+### Secrets
+
+The contact form needs three, set as Pages secrets (never committed):
+
+```sh
+printf '%s' "<resend-api-key>" | npx wrangler pages secret put RESEND_API_KEY --project-name kayspective-media
+printf '%s' "kayspectivemedia@gmail.com" | npx wrangler pages secret put INTAKE_TO --project-name kayspective-media
+printf '%s' "Kayspective Media <hello@kayspectivemedia.com>" | npx wrangler pages secret put INTAKE_FROM --project-name kayspective-media
+```
+
+`TURNSTILE_SECRET` is optional and unset — bot checking is currently the honeypot alone.
+**Secrets only reach a new deployment**, so redeploy after changing one.
+
+Resend sends from `kayspectivemedia.com` (verified via DKIM/SPF/MX on `send`). Enquiries
+land in `kayspectivemedia@gmail.com` with reply-to set to the enquirer, and the enquirer
+gets a confirmation from `hello@`.
 
 ---
 
@@ -108,8 +126,8 @@ means touching CSS.
 | Services | Three cards — Content Production / Social Management / Strategy & Direction |
 | Selected work | Captions + the "newly launched" note |
 | Process | Four steps |
-| About | **Needs Kay's review before launch.** Written from her real background; her current employer is deliberately not named. Whether to keep Austin, the sales-to-content story, etc. is her call. |
-| CTA | Headline, sub, button label |
+| About | **Still needs Kay's sign-off — the site is live.** Written from her real background; her current employer is deliberately not named. Whether to keep Austin, the sales-to-content story, etc. is her call. |
+| Contact form | Headline, sub, field labels, button, the "goes straight to Kay" note |
 
 **No invented client names or fabricated case studies** anywhere — a real liability on
 a live business site. The work section says "full portfolio available on request".
@@ -142,11 +160,29 @@ in `build_portrait()`.
 
 ## Verified
 
-Checked locally, at 390 / 768 / 1440:
+On the live domain, and locally at 390 / 768 / 1440:
 
-- Lighthouse **100 / 100 / 100** — accessibility, best practices, SEO
-- Every text/background pair meets WCAG AA (4.5:1 body, 3:1 large) — audited in-page
-- Zero external network requests, zero console errors
-- All 14 tab stops have a visible focus ring; skip link first
+- Lighthouse **100 / 100 / 100** on `kayspectivemedia.com` — accessibility, best
+  practices, SEO. (SEO reads 69 off-production; that is the `noindex` guard working.)
+- Every text/background pair meets WCAG AA (4.5:1 body, 3:1 large) — audited against
+  rendered colours, not assumed from tokens
+- Zero external requests on page load; zero console errors
+- All tab stops have a visible focus ring; skip link first
 - Full content renders **without JavaScript** and under `prefers-reduced-motion`
-- Intake form and Instagram links resolve 200
+- Contact form delivers end to end: a real submission reached the inbox from
+  `hello@kayspectivemedia.com`, with reply-to set to the enquirer
+- Form degrades correctly: validation errors inline, honeypot silently accepted,
+  delivery failure redirects to `/thank-you/?error=1` rather than claiming success
+- City type-ahead returns Austin first, and falls back to plain text if Photon is
+  unreachable
+
+## Known follow-ups
+
+- **About copy needs Kay's approval.** It is live and drafted from her real background.
+- **The GitHub Pages copy at `edswangren.github.io/kayspective-media` is stale** and its
+  contact form cannot work there (Pages Functions do not run on GitHub Pages). Disable it
+  or ignore it; it is `noindex` either way.
+- **A deploy publishes the whole repo**, including `tools/`, `tests/`, and the 2 MB
+  original portrait. Harmless on a public repo. A small build step emitting `dist/`
+  would tidy it.
+- **Bot protection is the honeypot only.** `TURNSTILE_SECRET` is wired but unset.
