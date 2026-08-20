@@ -197,6 +197,9 @@ launch.
   the repo** — a fresh clone will not have it. Retrieve it from Resend or the user.
 - A deploy uploads the whole repo root, so `tools/`, `tests/`, and `assets/src/` are
   publicly reachable. `functions/` and `.git/` are excluded automatically.
+- **Cloudflare Pages is the only host.** GitHub Pages was used for early review and has
+  been deleted — do not re-enable it. Pages Functions do not run there, so the contact
+  form cannot work on GitHub Pages, and a second copy of the site only splits traffic.
 
 ## Content rules
 

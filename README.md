@@ -199,9 +199,6 @@ with the same deploy command — so the only real work is creating and storing t
 ## Known follow-ups
 
 - **About copy needs Kay's approval.** It is live and drafted from her real background.
-- **The GitHub Pages copy at `edswangren.github.io/kayspective-media` is stale** and its
-  contact form cannot work there (Pages Functions do not run on GitHub Pages). Disable it
-  or ignore it; it is `noindex` either way.
 - **A deploy publishes the whole repo**, including `tools/`, `tests/`, and the 2 MB
   original portrait. Harmless on a public repo. A small build step emitting `dist/`
   would tidy it.
