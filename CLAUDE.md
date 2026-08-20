@@ -27,7 +27,9 @@ Deploys normally happen by pushing to `main` — `.github/workflows/deploy.yml` 
 suites, builds `dist/`, and publishes. The commands above are the manual fallback.
 
 `python3 -m http.server` is enough for everything except the contact form, which needs
-the wrangler dev server to run the Function.
+the wrangler dev server to run the Function. `wrangler pages dev` serves stale HTML after
+a rebuild even on a hard reload; add a cache-busting query (`/?cb=1`) when a change should
+be visible and isn't.
 
 There is no compile step, no package manager, and no linter — `tools/build_site.py`
 only copies the shippable files into `dist/`. Tests are stdlib `unittest`
@@ -84,6 +86,10 @@ Two conventions worth keeping:
 - **When you add an asset, section, or outbound link, extend the invariant rather than
   the fixture list.** The tests walk the DOM and `PANELS`, so new items are covered
   automatically — that only holds if you keep assertions general.
+- **Never normalise inside a comparison the test exists to police.** The support-option
+  drift test folded the curly apostrophe onto a straight one before comparing, so it
+  passed while every enquiry choosing the first option was refused. Compare raw; put any
+  tolerance in the code under test, where it is visible.
 
 Several tests encode a bug that already shipped once (declared image dimensions
 disagreeing with the file, the private `/edit` form URL, HSV blending fringing hair
@@ -162,6 +168,13 @@ change. Do not describe them to the user as finished art direction.
 
 ## Things that will bite you
 
+**Turnstile cannot be exercised through browser automation.** Chrome under CDP is exactly
+what it flags: the widget appears (proving it renders) and then refuses every scripted
+click, so the happy path is unreachable that way. Use the dummy keys in
+`.dev.vars.example` locally, or the preview deployment — it has `TURNSTILE_SECRET` but no
+Resend key, so a real submission stopping at the 503 "not configured yet" proves the token
+verified. A human in an ordinary browser sees no widget at all.
+
 **`--gold-text` vs `--gold-deep`.** Kay's brand deep gold (`#AB7937`) is 3.1:1 on cream —
 correct for rules, borders, and large display type, but **below WCAG AA for small text**.
 `--gold-text` (`#89602A`) is the same hue darkened until it passes on both cream and sand.
@@ -211,6 +224,11 @@ launch.
   from the domain via DKIM/SPF/MX on `send`, all DNS-only (grey cloud).
 - The Resend key lives in `.planning/resend-api-key`, which is gitignored and **not in
   the repo** — a fresh clone will not have it. Retrieve it from Resend or the user.
+- **Pages secrets are per-environment.** `wrangler pages secret put` targets production;
+  preview needs `--env preview` set separately, and `secret list --env preview` shows what
+  it actually has (currently `TURNSTILE_SECRET` only).
+- Wrangler's OAuth token carries `challenge-widgets.write`, so Turnstile widgets can be
+  created straight from the API (`POST /accounts/{id}/challenges/widgets`) — no dashboard.
 - A deploy uploads `dist/`, not the repo root, so `tools/`, `tests/`, and `assets/src/`
   are no longer publicly reachable. `tools/build_site.py` is an allowlist — a new asset
   has to be named there or the build fails on the reference check.
