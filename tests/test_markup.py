@@ -389,13 +389,24 @@ class TestIntakeForm(unittest.TestCase):
                     self.assertEqual(a.get("maxlength"), limits[name])
 
     def test_support_options_match_the_server_allowlist(self):
-        """A mismatch silently rejects a real submission, so they must not drift."""
+        """A mismatch silently rejects a real submission, so they must not drift.
+
+        Compared character for character. This test used to fold the curly
+        apostrophe onto a straight one before comparing, which hid the exact drift
+        it existed to catch: the markup posts `we\u2019ll` and the allowlist held
+        `we'll`, so every enquiry choosing the first option was refused as "not one
+        of the listed options" -- a live form rejecting real leads while every test
+        passed. Normalise here and the bug comes straight back.
+        """
         lib = pathlib.Path(ROOT, "functions/api/_lib/validate.js").read_text()
         block = lib.split("SUPPORT_LEVELS = [")[1].split("];")[0]
-        server = [m.group(1) for m in re.finditer(r'"([^"]+)"', block)]
+        # Only \uXXXX escapes are decoded: a blanket unicode_escape would mangle
+        # the em dashes, which are literal UTF-8 in both files.
+        unesc = lambda v: re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), v)
+        server = [unesc(m.group(1)) for m in re.finditer(r'"([^"]+)"', block)]
         html_opts = re.findall(r"<option>(.*?)</option>", HTML, re.S)
         import html as htmllib
-        rendered = [htmllib.unescape(o).replace("\u2019", "'").strip() for o in html_opts]
+        rendered = [htmllib.unescape(o).strip() for o in html_opts]
         self.assertEqual(len(server), len(rendered), "option count drifted")
         for a, b in zip(server, rendered):
             with self.subTest(option=b):

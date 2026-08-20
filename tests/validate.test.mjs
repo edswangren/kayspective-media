@@ -70,6 +70,20 @@ test("malformed email addresses are rejected", () => {
   }
 });
 
+test("the apostrophe in the first option does not decide whether a lead is accepted", () => {
+  // The markup writes `we&rsquo;ll`, so this curly form is literally what the
+  // browser posts. It was rejected in production while every test passed: the
+  // allowlist held a straight quote and the drift test normalised both sides
+  // before comparing. Both spellings must be accepted.
+  const curly = "Strategy & Guidance \u2014 we\u2019ll create and post ourselves";
+  const straight = "Strategy & Guidance \u2014 we'll create and post ourselves";
+  for (const support of [curly, straight]) {
+    const { ok, errors } = validate({ ...valid(), support });
+    assert.equal(ok, true, `rejected: ${support} -> ${JSON.stringify(errors)}`);
+  }
+  assert.equal(validate({ ...valid(), support: "Strategy & Guidance" }).ok, false);
+});
+
 test("support level must be one of the offered options", () => {
   assert.equal(validate({ ...valid(), support: "Free work please" }).ok, false);
   for (const level of SUPPORT_LEVELS) {

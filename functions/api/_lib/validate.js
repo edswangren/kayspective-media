@@ -6,7 +6,7 @@
  */
 
 export const SUPPORT_LEVELS = [
-  "Strategy & Guidance — we'll create and post ourselves",
+  "Strategy & Guidance — we\u2019ll create and post ourselves",
   "Consistent Content — 3 videos a week",
   "Growth Content — 5 videos a week",
   "Daily Content — showing up every day",
@@ -21,6 +21,21 @@ export const LIMITS = {
   support: 200,
   message: 2000,
 };
+
+/**
+ * Compare two option strings ignoring which apostrophe was used.
+ *
+ * The markup writes `we&rsquo;ll`, so the browser posts back a curly U+2019 while
+ * this file was written with a straight quote -- the lists read as identical and
+ * every submission choosing the first option was rejected as "not one of the
+ * listed options". The list below now matches the markup exactly; this
+ * comparison is the belt to that braces, since anything that rewrites quotes
+ * between the form and here would break it again just as silently.
+ */
+export function sameOption(a, b) {
+  const flatten = (v) => v.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+  return flatten(a) === flatten(b);
+}
 
 // Pragmatic rather than RFC-complete: one @, a dot in the domain, no whitespace.
 // Over-strict email regexes reject real addresses, which costs leads.
@@ -52,7 +67,9 @@ export function validate(raw = {}) {
   else if (!EMAIL.test(data.email)) errors.email = "That email doesn't look right.";
 
   if (!data.support) errors.support = "Please choose a level of support.";
-  else if (!SUPPORT_LEVELS.includes(data.support)) errors.support = "Please choose one of the listed options.";
+  else if (!SUPPORT_LEVELS.some((level) => sameOption(level, data.support))) {
+    errors.support = "Please choose one of the listed options.";
+  }
 
   for (const [key, max] of Object.entries(LIMITS)) {
     if (data[key].length > max) errors[key] = `Please keep this under ${max} characters.`;
