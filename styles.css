@@ -391,7 +391,7 @@ em { font-style: italic; }
   display: flex; flex-wrap: wrap; align-items: center;
   gap: 1.25rem 1.75rem;
 }
-.audit-time { color: var(--ink-soft); font-size: .92rem; }
+.audit-next { color: var(--ink-soft); font-size: .92rem; }
 
 /* ── closing CTA ─────────────────────────────────────────────────────────── */
 .cta {

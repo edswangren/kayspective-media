@@ -116,7 +116,11 @@ validates a submission, emails Kay via Resend, and sends the enquirer a confirma
 - Secrets (`RESEND_API_KEY`, `INTAKE_TO`, `INTAKE_FROM`, optional `TURNSTILE_SECRET`)
   are Pages secrets in production and `.dev.vars` locally — see `.dev.vars.example`.
   With none set, the Function returns a 503 telling the visitor to email instead, so
-  local development runs without credentials. **Secrets only reach a new
+  local development runs without credentials. **Leave it that way.** The 503 is not a
+  gap to be filled in — it is what stops a local test mailing Kay's real inbox. Never
+  put `RESEND_API_KEY` in `.dev.vars`, and never offer to; the key in `.planning/` is
+  for production, and a form that validates but does not deliver is the correct local
+  state. **Secrets only reach a new
   deployment** — redeploy after changing one, or the running version keeps the old value.
 - **Turnstile is a managed widget in `interaction-only` mode.** It renders at zero
   height for an ordinary visitor and only becomes a checkbox when Cloudflare's risk
