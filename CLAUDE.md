@@ -8,6 +8,9 @@ hospitality founded by Kaylin "Kay" Mee in Austin, TX. **Live at
 `README.md` covers deployment and the design rationale; this file covers the parts that
 are easy to break.
 
+**Planned work lives in GitHub issues**, not in this file or the README —
+`gh issue list`. They carry the rationale and the constraints each one has to respect.
+
 Visitors arrive from Instagram and Facebook links, overwhelmingly on mobile browsers.
 Prospects are hospitality founders and operators. Design for that audience.
 
@@ -82,6 +85,7 @@ the feathered edge fringes her hair green.
 | `test_asset_pipeline.py` | colour maths, mask behaviour, generated-asset geometry |
 | `validate.test.mjs` | intake validation, header injection, email body assembly |
 | `photon.test.mjs` | type-ahead URL building, label formatting, dedup |
+| `reelvideo.test.mjs` | reel source expansion, the local-only rule, autoplay gating |
 
 Two conventions worth keeping:
 
@@ -163,6 +167,43 @@ The hero, the four 9:16 reel frames, and the divider band are **brand-tinted mar
 photographs of venues**. They are deliberate placeholders. Every slot is a real `<picture>`
 element at a fixed aspect ratio, so real work drops in as a file swap with no layout
 change. Do not describe them to the user as finished art direction.
+
+### The reel slots upgrade to video
+
+`lib/reelvideo.js` holds the pure logic, `setupReelVideo` in `main.js` owns the DOM —
+the same split as the type-ahead. A slot stays a still until its `<figure class="reel">`
+carries `data-src="assets/video/reel-N"`: **the stem, no extension**, since `sourcesFor()`
+appends `.webm` and `.mp4`. No slot is activated yet (see the issues).
+
+- The `<picture>` is never replaced. It keeps carrying the layout and serves as the
+  poster, so there is no shift when the first frame paints and a clip that fails to load
+  leaves the still standing. Never trade a slot's `<img>` for a bare `<video>`.
+- **Stems are local-only, enforced in `sourcesFor()`.** The subresource tests pin
+  `<link>`, `<script>`, `<img>` and the hosts named in JS and CSS; none of them walks a
+  `<video>`, so that guard has nowhere else to live.
+- Plays at a quarter on screen, tested against `intersectionRatio` rather than
+  `isIntersecting`. A 9:16 reel is most of the viewport's height on both phone and
+  desktop, so a half is unreachable for much of the scroll — and `isIntersecting` alone
+  is true at one visible pixel.
+- A per-reel pause control is required, not decorative: WCAG 2.2.2 covers anything moving
+  past five seconds. An explicit pause outranks the observer and survives scrolling away.
+- `preload="none"` until playback is actually wanted, so a reduced-motion or data-saver
+  visitor fetches no video bytes at all.
+- `tools/build_site.py` fails the build if neither variant of a stem exists.
+
+### Conversion surfaces
+
+- **The sticky CTA is not decoration.** Below 900px the header's "Start a project" button
+  is inside the collapsed drawer, so between the hero and the form a phone has no call to
+  action at all. It rises once the hero leaves, stands down at the form and while the
+  drawer is open, and is `display: none` above the breakpoint where the nav button is
+  already visible.
+- **The audit section has to stay on the sand ground.** Its stars knock the hairline out
+  with a solid `--sand` swatch — the same trick `.step` uses — and show as rectangles
+  sitting on the rule against anything else.
+- **CTAs that pre-select a support level key off `data-key`, never the option text.**
+  That text has to match `SUPPORT_LEVELS` character for character, so nothing else may
+  hold a second copy of it.
 
 ## Things that will bite you
 

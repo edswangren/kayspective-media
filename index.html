@@ -248,6 +248,45 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
   </div>
 </section>
 
+<!-- ══ FREE AUDIT ════════════════════════════════════════════════════════ -->
+<!-- The low-commitment first step. Cold traffic arriving from Instagram is not
+     ready to describe its whole operation to a studio it met a minute ago; this
+     asks for nothing but a handle and feeds the same form. -->
+<section class="section section-sand audit" id="audit">
+  <div class="shell audit-inner">
+    <!-- COPY: provisional -->
+    <p class="eyebrow reveal">No cost, no commitment</p>
+    <h2 class="reveal">Not sure what you need?<br>Start with an audit.</h2>
+    <p class="audit-lead reveal">Send me your handles and I&rsquo;ll spend real time in your accounts,
+      then come back with a short written read &mdash; free, and yours to keep whether or not we work
+      together.</p>
+
+    <ul class="audit-list">
+      <li class="audit-item reveal">
+        <svg class="star" width="12" height="12" aria-hidden="true"><use href="#star"/></svg>
+        <h3>What&rsquo;s working</h3>
+        <p>The posts earning attention, and the thread running through them worth doing more of.</p>
+      </li>
+      <li class="audit-item reveal">
+        <svg class="star" width="12" height="12" aria-hidden="true"><use href="#star"/></svg>
+        <h3>What&rsquo;s costing you</h3>
+        <p>Where the feed undersells the room &mdash; lighting, pacing, captions, or timing.</p>
+      </li>
+      <li class="audit-item reveal">
+        <svg class="star" width="12" height="12" aria-hidden="true"><use href="#star"/></svg>
+        <h3>Where to start</h3>
+        <p>The two or three changes that would move things soonest, in order.</p>
+      </li>
+    </ul>
+
+    <p class="audit-foot reveal">
+      <a class="btn btn-outline" href="#contact" data-support="audit">Get a free audit</a>
+      <span class="audit-time">Takes about ten minutes to ask for.</span>
+    </p>
+    <!-- /COPY -->
+  </div>
+</section>
+
 <!-- ══ CLOSING CTA / INTAKE ══════════════════════════════════════════════ -->
 <section class="cta" id="contact">
   <div class="cta-band" aria-hidden="true"></div>
@@ -297,7 +336,7 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
           <option>Consistent Content — 3 videos a week</option>
           <option>Growth Content — 5 videos a week</option>
           <option>Daily Content — showing up every day</option>
-          <option>Not sure yet — recommend a level after an audit</option>
+          <option data-key="audit">Not sure yet — recommend a level after an audit</option>
         </select>
         <span class="field-error" id="e-support" hidden></span>
       </div>
@@ -341,6 +380,14 @@ if (!/^(www\.)?kayspectivemedia\.com$/.test(location.hostname)) {
   </div>
 </section>
 </main>
+
+<!-- Small screens only. Below the nav breakpoint the header's button is inside
+     the collapsed drawer, leaving the hero button as the page's only call to
+     action -- and it is gone after one swipe. main.js raises this once the hero
+     leaves and lowers it again at the form. -->
+<div class="sticky-cta" id="sticky-cta">
+  <a class="btn btn-solid" href="#contact">Start a project</a>
+</div>
 
 <footer class="site-footer">
   <div class="shell footer-inner">

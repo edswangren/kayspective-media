@@ -4,6 +4,7 @@
  degrades: with scripting off the page is fully visible, the form is an
  ordinary POST, and the city field is a plain text input. */
 import { buildQueryUrl, toSuggestions } from './lib/photon.js';
+import { sourcesFor, shouldAutoplay, controlLabel } from './lib/reelvideo.js';
 
 var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -21,6 +22,9 @@ var nav = document.getElementById('nav');
 var setNav = function (open) {
   nav.classList.toggle('is-open', open);
   toggle.setAttribute('aria-expanded', String(open));
+  /* body carries it too: the sticky CTA sits outside this subtree and has to
+     stand down while the drawer is over the page. */
+  document.body.classList.toggle('nav-open', open);
 };
 toggle.addEventListener('click', function () {
   setNav(toggle.getAttribute('aria-expanded') !== 'true');
@@ -76,6 +80,161 @@ addEventListener('keydown', function (e) {
   }, { passive: true });
   addEventListener('resize', sweep, { passive: true });
   addEventListener('load', sweep);
+})();
+
+/* ── selected-work reels upgrade to video when footage exists ────────────── */
+(function setupReelVideo() {
+  var figures = document.querySelectorAll('.reel[data-src]');
+  if (!figures.length || !('IntersectionObserver' in window)) return;
+
+  /* The still <picture> stays in the flow and keeps its intrinsic dimensions,
+     so it goes on carrying the layout -- the clip is laid over it. That costs
+     nothing, rules out a shift when the first frame paints, and leaves a real
+     poster behind for any clip that never loads. */
+  var saveData = !!(navigator.connection && navigator.connection.saveData);
+  var mayAutoplay = shouldAutoplay({ reduced: reduced, saveData: saveData });
+
+  /* A rejected play() is ordinary -- a policy block, a clip still loading, a
+     backgrounded tab. Fall back to the poster rather than insisting. */
+  var playReel = function (reel) {
+    reel.video.preload = 'auto';
+    var p = reel.video.play();
+    if (p && p.catch) p.catch(function () { reel.playing = false; reel.sync(); });
+  };
+
+  var upgrade = function (figure) {
+    var sources = sourcesFor(figure.getAttribute('data-src'));
+    var frame = figure.querySelector('picture');
+    if (!sources.length || !frame) return null;
+
+    var video = document.createElement('video');
+    video.muted = true;            // property, not attribute: Safari checks this to allow autoplay
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = 'none';
+    video.setAttribute('muted', '');
+    video.setAttribute('loop', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('aria-hidden', 'true');   // decorative; the figcaption names it
+    video.tabIndex = -1;
+    sources.forEach(function (s) {
+      var el = document.createElement('source');
+      el.src = s.src;
+      el.type = s.type;
+      video.appendChild(el);
+    });
+
+    var caption = figure.querySelector('figcaption');
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'reel-toggle';
+    button.setAttribute('aria-label', controlLabel(false, caption && caption.textContent));
+
+    var reel = { figure: figure, video: video, button: button, caption: caption,
+                 wanted: mayAutoplay, playing: false, failed: false };
+
+    var sync = function () {
+      button.setAttribute('aria-label', controlLabel(reel.playing, caption && caption.textContent));
+      button.setAttribute('aria-pressed', reel.playing ? 'false' : 'true');
+      figure.classList.toggle('is-playing', reel.playing);
+    };
+    reel.sync = sync;
+
+    video.addEventListener('playing', function () { reel.playing = true; sync(); });
+    video.addEventListener('pause', function () { reel.playing = false; sync(); });
+    video.addEventListener('error', function () {
+      reel.failed = true;
+      figure.classList.remove('has-video', 'is-playing');
+      if (video.parentNode) video.parentNode.removeChild(video);
+      if (button.parentNode) button.parentNode.removeChild(button);
+    }, true);
+
+    button.addEventListener('click', function () {
+      reel.wanted = !reel.playing;       // an explicit choice outranks the observer
+      if (reel.wanted) playReel(reel); else video.pause();
+      sync();
+    });
+
+    frame.appendChild(video);
+    figure.appendChild(button);
+    figure.classList.add('has-video');
+    sync();
+    return reel;
+  };
+
+  var reels = Array.prototype.map.call(figures, upgrade).filter(Boolean);
+  if (!reels.length) return;
+
+  /* Play only what is actually on screen: four looping clips running off-screen
+     burn phone battery and cellular data for an audience arriving from
+     Instagram, and pausing on exit costs nothing.
+
+     A quarter, tested against the ratio rather than left to isIntersecting. A
+     9:16 reel is most of the viewport's height on both phone and desktop, so
+     anything near a half is unreachable for much of the scroll -- and
+     isIntersecting alone is true at a single visible pixel. */
+  var VISIBLE_ENOUGH = 0.25;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var reel = reels.find(function (r) { return r.figure === entry.target; });
+      if (!reel || reel.failed) return;
+      if (entry.intersectionRatio >= VISIBLE_ENOUGH) {
+        if (reel.wanted) playReel(reel);
+      } else if (reel.playing) {
+        reel.video.pause();
+      }
+    });
+  }, { threshold: [0, VISIBLE_ENOUGH] });
+
+  reels.forEach(function (r) { io.observe(r.figure); });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) reels.forEach(function (r) { if (r.playing) r.video.pause(); });
+  });
+})();
+
+/* ── sticky call to action on small screens ──────────────────────────────── */
+(function setupStickyCta() {
+  /* Below the nav breakpoint the header's "Start a project" button is inside
+     the collapsed drawer, so the hero button is the only call to action on the
+     page -- and it scrolls away in the first swipe. This puts one back within
+     reach for the whole middle of the document, and stands down once the form
+     itself is on screen. */
+  var bar = document.getElementById('sticky-cta');
+  var hero = document.querySelector('.hero');
+  var contact = document.getElementById('contact');
+  if (!bar || !hero || !contact || !('IntersectionObserver' in window)) return;
+
+  var past = { hero: false, contact: false };
+  var apply = function () {
+    bar.classList.toggle('is-up', past.hero && !past.contact);
+  };
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.target === hero) past.hero = !entry.isIntersecting;
+      if (entry.target === contact) past.contact = entry.isIntersecting;
+    });
+    apply();
+  }, { threshold: 0 });
+
+  io.observe(hero);
+  io.observe(contact);
+})();
+
+/* ── CTAs that arrive at the form with an answer already chosen ──────────── */
+(function setupSupportShortcut() {
+  /* Keyed off a data attribute rather than the option's text: that text has to
+     match SUPPORT_LEVELS on the server character for character, so nothing else
+     should be holding a second copy of it. */
+  var select = document.getElementById('f-support');
+  if (!select) return;
+  document.querySelectorAll('a[data-support]').forEach(function (link) {
+    link.addEventListener('click', function () {
+      var opt = select.querySelector('option[data-key="' + link.dataset.support + '"]');
+      if (opt) select.value = opt.value;
+    });
+  });
 })();
 
 /* ── intake form ─────────────────────────────────────────────────────────── */

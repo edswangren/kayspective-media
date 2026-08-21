@@ -147,8 +147,10 @@ means touching CSS.
 | Services | Three cards — Content Production / Social Management / Strategy & Direction |
 | Selected work | Captions + the "newly launched" note |
 | Process | Four steps |
+| Free audit | Eyebrow, headline, lead, three items, CTA and the "ten minutes" line — **the offer itself needs Kay's confirmation** (that it is free, and what it includes) |
 | About | **Still needs Kay's sign-off — the site is live.** Written from her real background; her current employer is deliberately not named. Whether to keep Austin, the sales-to-content story, etc. is her call. |
 | Contact form | Headline, sub, field labels, button, the "goes straight to Kay" note |
+| Sticky CTA | Button label only — mirrors the hero's |
 
 **No invented client names or fabricated case studies** anywhere — a real liability on
 a live business site. The work section says "full portfolio available on request".

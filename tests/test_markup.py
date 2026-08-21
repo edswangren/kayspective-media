@@ -18,6 +18,8 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HTML = pathlib.Path(ROOT, "index.html").read_text()
+CSS = pathlib.Path(ROOT, "styles.css").read_text()
+MAIN_JS = pathlib.Path(ROOT, "main.js").read_text()
 
 # Kay's current employer must never appear on the site: naming it implies
 # portfolio rights and an endorsement she may not have.
@@ -401,9 +403,13 @@ class TestIntakeForm(unittest.TestCase):
         # the em dashes, which are literal UTF-8 in both files.
         unesc = lambda v: re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), v)
         server = [unesc(m.group(1)) for m in re.finditer(r'"([^"]+)"', block)]
-        html_opts = re.findall(r"<option>(.*?)</option>", HTML, re.S)
+        # Attributes are allowed on the tag (data-key drives the audit shortcut),
+        # but a disabled option is the "Choose one..." placeholder -- it is never
+        # submitted, so it has no counterpart on the server.
+        html_opts = re.findall(r"<option\b([^>]*)>(.*?)</option>", HTML, re.S)
         import html as htmllib
-        rendered = [htmllib.unescape(o).strip() for o in html_opts]
+        rendered = [htmllib.unescape(text).strip()
+                    for attrs, text in html_opts if "disabled" not in attrs]
         self.assertEqual(len(server), len(rendered), "option count drifted")
         for a, b in zip(server, rendered):
             with self.subTest(option=b):
@@ -433,6 +439,67 @@ class TestIntakeForm(unittest.TestCase):
     def test_functions_are_restricted_to_the_intake_route(self):
         routes = json.loads(pathlib.Path(ROOT, "_routes.json").read_text())
         self.assertEqual(routes["include"], ["/api/intake"])
+
+
+class TestConversionSurfaces(unittest.TestCase):
+    """The sticky CTA, the audit section, and the reel video upgrade."""
+
+    def test_sticky_cta_exists_and_points_at_the_form(self):
+        """Below the nav breakpoint it is the page's only call to action.
+
+        `styles.css` collapses the header nav -- and the "Start a project" button
+        inside it -- into a drawer under 900px, so between the hero and the form
+        a phone has nothing to tap. This bar is what fills that gap.
+        """
+        self.assertIn('id="sticky-cta"', HTML)
+        bar = HTML.split('id="sticky-cta"')[1].split("</div>")[0]
+        self.assertIn('href="#contact"', bar)
+
+    def test_sticky_cta_is_small_screens_only(self):
+        """On a wide screen the header's own button never leaves, so it would
+        be redundant furniture."""
+        self.assertRegex(CSS, r"\.sticky-cta\s*\{[^}]*display:\s*none")
+        drawer = CSS.split("@media (max-width: 900px)")[1].split("\n}")[0]
+        self.assertRegex(drawer, r"\.sticky-cta\s*\{[^}]*display:\s*block")
+
+    def test_sticky_cta_clears_the_iphone_home_indicator(self):
+        self.assertRegex(CSS, r"\.sticky-cta\s*\{[^}]*env\(safe-area-inset-bottom")
+
+    def test_audit_cta_preselects_a_support_level_that_exists(self):
+        """The shortcut is keyed on data-key rather than the option's text,
+        because that text has to match the server character for character and
+        should not have a second copy anywhere."""
+        keys = set(re.findall(r'<option[^>]*\bdata-key="([^"]+)"', HTML))
+        wanted = set(re.findall(r'<a[^>]*\bdata-support="([^"]+)"', HTML))
+        self.assertTrue(wanted, "no CTA carries data-support")
+        self.assertTrue(wanted <= keys,
+                        f"CTA asks for {wanted - keys}, which no option offers")
+
+    def test_audit_section_stays_on_the_sand_ground(self):
+        """Its stars knock the hairline out with a solid `--sand` swatch, the
+        same trick `.step` uses -- on any other background they show as
+        rectangles sitting on the rule."""
+        self.assertRegex(HTML, r'<section[^>]*class="[^"]*section-sand[^"]*audit')
+        self.assertRegex(CSS, r"\.audit-item \.star\s*\{[^}]*background:\s*var\(--sand\)")
+
+    def test_reel_video_is_local_only(self):
+        """No test walks a <video>, so a stem must never name another origin."""
+        for stem in re.findall(r'data-src="([^"]+)"', HTML):
+            self.assertFalse(stem.startswith(("http", "//", "data:")), stem)
+
+    def test_reel_video_keeps_a_still_poster_underneath(self):
+        """The <picture> carries the layout and stands in for a clip that never
+        loads, so a slot must never trade its <img> for a bare <video>."""
+        for figure in re.findall(r"<figure class=\"reel[^\"]*\".*?</figure>", HTML, re.S):
+            self.assertIn("<img ", figure)
+
+    def test_reel_video_has_a_pause_control(self):
+        """WCAG 2.2.2: motion running past five seconds needs a stop."""
+        self.assertIn("reel-toggle", MAIN_JS)
+        self.assertRegex(CSS, r"\.reel-toggle\s*\{")
+
+    def test_reel_video_never_autoplays_under_reduced_motion(self):
+        self.assertIn("shouldAutoplay", MAIN_JS)
 
 
 class TestScripts(unittest.TestCase):

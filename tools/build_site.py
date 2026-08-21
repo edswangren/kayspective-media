@@ -80,6 +80,25 @@ def local_refs(text, base):
     return refs
 
 
+VIDEO_STEM = re.compile(r'data-src=["\']([^"\'>]+)["\']')
+VIDEO_EXTS = ("webm", "mp4")
+
+
+def video_stems(text):
+    """Reel video stems, which name a file without its extension.
+
+    lib/reelvideo.js expands one stem into a <source> per type, so the stem is
+    never itself a path -- a slot is satisfied when any one variant exists, and
+    a stem with none would silently leave the still poster up in production
+    rather than failing anywhere visible.
+    """
+    return {
+        raw.split("?")[0]
+        for raw in VIDEO_STEM.findall(text)
+        if not raw.startswith(("http", "data:", "//"))
+    }
+
+
 def build(out):
     if out.exists():
         shutil.rmtree(out)
@@ -98,6 +117,13 @@ def build(out):
         for ref in local_refs((ROOT / doc).read_text(), base):
             if not (out / ref).exists():
                 missing.add(f"{ref}  (referenced by {doc})")
+    for doc in SCANNED:
+        base = os.path.dirname(doc)
+        for stem in video_stems((ROOT / doc).read_text()):
+            path = resolve(stem, base)
+            if not any((out / f"{path}.{ext}").exists() for ext in VIDEO_EXTS):
+                variants = "/".join(f".{e}" for e in VIDEO_EXTS)
+                missing.add(f"{stem}{variants}  (referenced by {doc})")
     if missing:
         sys.exit("build_site: referenced files missing from the output:\n  " +
                  "\n  ".join(sorted(missing)))
